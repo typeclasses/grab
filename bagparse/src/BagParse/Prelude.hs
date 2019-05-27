@@ -8,14 +8,14 @@ trivialP_maybe = \case Just x -> parseSuccess x; Nothing -> parseFailure ()
 trivialP_either :: Either err a -> Parser bag item err a
 trivialP_either = \case Left x -> parseFailure x; Right x -> parseSuccess x
 
-matchAny :: Parser bag item err ()
-matchAny = _
+nothing :: err -> Parser bag item err ()
+nothing = _
 
 parseSuccess :: a -> Parser bag item err a
-parseSuccess = Parser_Success
+parseSuccess = Parser_Trivial . Right
 
 parseFailure :: err -> Parser bag item err a
-parseFailure = Parser_Failure
+parseFailure = Parser_Trivial . Left
 
 one :: e -> Parser [] t e [a] -> Parser [] t e a
 one p = _

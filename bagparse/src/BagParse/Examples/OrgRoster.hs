@@ -62,14 +62,13 @@ data Member =
 data Error = Error Text
 
 readForm :: [FormParam] -> Either (NonEmpty Error) Form
-readForm = parse formP
+readForm = parseResultEither . parse formP
 
 formP :: Parser [] FormParam (NonEmpty Error) Form
 formP =
   do
     members <- memberListP
     org <- orgP
-    _ <- matchAny
     return Form { form_org = org, form_members = members }
 
 orgP :: Parser [] FormParam (NonEmpty Error) OrgId
@@ -79,13 +78,18 @@ orgP =
     key "org"
 
 memberListP :: Parser [] FormParam (NonEmpty Error) MemberList
-memberListP = prefix "members." (MemberList <$> existingListP <*> newListP)
+memberListP = prefix "members."
+  do
+    existing <- existingListP
+    new <- newListP
+    nothing'
+    return MemberList{ members_existing = existing, members_new = new }
 
 existingListP :: Parser [] FormParam (NonEmpty Error) [Existing]
-existingListP = prefix "existing." (bracketList '[' ']' existingP)
+existingListP = prefix "existing." (bracketList '[' ']' (\x -> existingP x <* nothing'))
 
 newListP :: Parser [] FormParam (NonEmpty Error) [Member]
-newListP = prefix "new." (bracketList '[' ']' (const memberP))
+newListP = prefix "new." (bracketList '[' ']' (const (memberP <* nothing')))
 
 existingP :: Text -> Parser [] FormParam (NonEmpty Error) Existing
 existingP x =
@@ -110,8 +114,11 @@ bracketList a b f = _
 readNat :: Text -> Either (NonEmpty Error) Natural
 readNat = _
 
-prefix :: Text -> Parser [] FormParam e a -> Parser [] FormParam e a
+prefix :: Text -> Parser [] FormParam err a -> Parser [] FormParam e a
 prefix x p = _
 
-key :: Text -> Parser [] FormParam e [Text]
+key :: Text -> Parser [] FormParam err [Text]
 key k = _
+
+nothing' :: Parser bag item (NonEmpty Error) ()
+nothing' = nothing (Error "Unrecognized field" :| [])
