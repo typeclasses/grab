@@ -1,0 +1,117 @@
+module BagParse.Examples.OrgRoster where
+
+import BagParse.Core
+import BagParse.Prelude
+
+import Data.Coerce
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Text (Text)
+import Numeric.Natural
+
+type FormParam = (Text, Text)
+
+newtype OrgId = OrgId Text
+
+newtype OrgMemberName = OrgMemberName Text
+
+-- | A position in an org's member list.
+
+newtype RosterOrdinal = RosterOrdinal Natural
+
+-- | Whether an org member has permissions to administer the org.
+
+data OrgRole
+  = OrgRole_Normal   -- ^ No, a regular user with no management permission
+  | OrgRole_Manager  -- ^ Yes, this user is an org manager
+
+-- | Whether an org member gets access to Type Classes content.
+
+data OrgContentAccess
+  = OrgContentAccess_Yes  -- ^ Yes, has access to content
+  | OrgContentAccess_No   -- ^ No, the membership does not grant content access
+
+data Form =
+  Form
+    { form_org :: OrgId
+    , form_members :: MemberList
+    }
+
+data MemberList =
+  MemberList
+    { members_existing :: [Existing]
+    , members_new :: [Member]
+    }
+
+data Existing =
+  Existing
+    { existing_ordinal :: RosterOrdinal
+    , existing_mod :: Modification
+    }
+
+data Modification
+  = Modification_Update Member
+  | Modification_Delete
+
+data Member =
+  Member
+    { member_name :: Maybe OrgMemberName
+    , member_role :: OrgRole
+    , member_access :: OrgContentAccess
+    }
+
+data Error = Error Text
+
+readForm :: [FormParam] -> Either (NonEmpty Error) Form
+readForm = parse formP
+
+formP :: Parser [] FormParam (NonEmpty Error) Form
+formP =
+  do
+    members <- memberListP
+    org <- orgP
+    _ <- matchAny
+    return Form { form_org = org, form_members = members }
+
+orgP :: Parser [] FormParam (NonEmpty Error) OrgId
+orgP =
+    fmap OrgId $
+    one (Error "Wrong number of org parameters" :| []) $
+    key "org"
+
+memberListP :: Parser [] FormParam (NonEmpty Error) MemberList
+memberListP = prefix "members." (MemberList <$> existingListP <*> newListP)
+
+existingListP :: Parser [] FormParam (NonEmpty Error) [Existing]
+existingListP = prefix "existing." (bracketList '[' ']' existingP)
+
+newListP :: Parser [] FormParam (NonEmpty Error) [Member]
+newListP = prefix "new." (bracketList '[' ']' (const memberP))
+
+existingP :: Text -> Parser [] FormParam (NonEmpty Error) Existing
+existingP x =
+  do
+    o <- coerce @Natural @RosterOrdinal <$> trivialP_either (readNat x)
+    m <- modificationP
+    return Existing { existing_ordinal = o, existing_mod = m }
+
+modificationP :: Parser [] FormParam (NonEmpty Error) Modification
+modificationP =
+  do
+    m <- memberP
+    r <- (_ :: Parser [] FormParam (NonEmpty Error) Bool)
+    return (if r then Modification_Delete else Modification_Update m)
+
+memberP :: Parser [] FormParam (NonEmpty Error) Member
+memberP = _
+
+bracketList :: Char -> Char -> (Text -> Parser [] FormParam e a) -> Parser [] FormParam e [a]
+bracketList a b f = _
+
+readNat :: Text -> Either (NonEmpty Error) Natural
+readNat = _
+
+prefix :: Text -> Parser [] FormParam e a -> Parser [] FormParam e a
+prefix x p = _
+
+key :: Text -> Parser [] FormParam e [Text]
+key k = _
