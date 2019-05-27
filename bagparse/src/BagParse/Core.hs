@@ -18,6 +18,16 @@ data Parser (bag :: * -> *) item err a
         -> (bag x -> a)  -- ^ The extraction function.
         -> Parser bag item err a
 
+    Parser_Nothing
+        :: err
+        -> a
+        -> Parser bag item err a
+
+    Parser_One
+        :: err
+        -> (item -> a)
+        -> Parser bag item err a
+
     -- | '<*>'
     Parser_Ap
         :: (Parser bag item err (x -> a))
@@ -40,6 +50,9 @@ instance Bifunctor (Parser bag item)
 
 class Bag (bag :: * -> *)
   where
+    bagEmpty :: bag a
+    bagNull :: bag a -> Bool
+    bagOne :: bag a -> Maybe a
     bagSelect :: (a -> Maybe b) -> bag a -> BagSelection bag a b
 
 data BagSelection bag a b
@@ -59,6 +72,12 @@ instance Functor bag => Bifunctor (BagSelection bag)
 
 instance Bag []
   where
+    bagEmpty = []
+
+    bagNull = null
+
+    bagOne = \case [x] -> Just x; _ -> Nothing
+
     bagSelect f = \case
         [] -> BagSelection [] []
         x:xs ->
@@ -80,17 +99,23 @@ parseResultEither (ParseResult _ x) = x
 parse :: (Bag bag, Semigroup err) => Parser bag item err a -> bag item -> ParseResult bag item err a
 parse = \case
     Parser_Trivial result -> \inputs -> ParseResult inputs result
-    Parser_Select s e -> \inputs ->
-        let BagSelection unconsumed consumed = bagSelect s inputs
-        in  ParseResult unconsumed (Right (e consumed))
+    Parser_Select select extract -> \inputs ->
+        let BagSelection unconsumed consumed = bagSelect select inputs
+        in  ParseResult unconsumed (Right (extract consumed))
+    Parser_Nothing err x -> \inputs ->
+        ParseResult inputs (if bagNull inputs then Right x else Left err)
+    Parser_One err extract -> \inputs ->
+        case bagOne inputs of
+            Just x -> ParseResult bagEmpty (Right (extract x))
+            Nothing -> ParseResult inputs (Left err)
     Parser_Ap p1 p2 -> \inputs ->
         let ParseResult inputs'  f = parse p1 inputs
             ParseResult inputs'' x = parse p2 inputs'
         in  ParseResult inputs'' (apEither f x)
 
 apEither :: Semigroup e => Either e (a -> b) -> Either e a -> Either e b
-apEither (Left e1) (Left e2) = Left (e1 <> e2)
-apEither (Left e) _ = Left e
-apEither _ (Left e) = Left e
-apEither (Right f) (Right x) = Right (f x)
-
+apEither =
+    \case Left e1 -> \case Left e2 -> Left (e1 <> e2)
+                           Right _ -> Left e1
+          Right f -> \case Left e2 -> Left e2
+                           Right x -> Right (f x)

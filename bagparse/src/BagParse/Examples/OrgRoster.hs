@@ -73,9 +73,8 @@ formP =
 
 orgP :: Parser [] FormParam (NonEmpty Error) OrgId
 orgP =
-    fmap OrgId $
-    one (Error "Wrong number of org parameters" :| []) $
-    key "org"
+    fmap (\(k, v) -> OrgId v) $
+    key "org" *> one (Error "Wrong number of org parameters" :| [])
 
 memberListP :: Parser [] FormParam (NonEmpty Error) MemberList
 memberListP = prefix "members."
@@ -121,4 +120,4 @@ key :: Text -> Parser [] FormParam err [Text]
 key k = _
 
 nothing' :: Parser bag item (NonEmpty Error) ()
-nothing' = nothing (Error "Unrecognized field" :| [])
+nothing' = nothing (Error "Unrecognized field" :| []) ()
