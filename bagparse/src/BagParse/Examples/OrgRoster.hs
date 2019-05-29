@@ -1,56 +1,67 @@
 module BagParse.Examples.OrgRoster where
 
-import BagParse.Core
-import BagParse.Prelude
+import qualified BagParse.Form.Types
+
+import BagParse.Form.Types (FormParam)
+import BagParse.Form.Prelude
+import BagParse.Parser.Prelude (parseEither)
 
 import Data.Coerce
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Map (Map)
 import Data.Text (Text)
 import Numeric.Natural
 
-type FormParam = (Text, Text)
+type Parser a = BagParse.Form.Types.Parser Error a
+
+type FormError = BagParse.Form.Types.FormError Error
+
+data Error = Error Text
+    deriving Show
 
 newtype OrgId = OrgId Text
+    deriving Show
 
 newtype OrgMemberName = OrgMemberName Text
+    deriving Show
 
 -- | A position in an org's member list.
 
 newtype RosterOrdinal = RosterOrdinal Natural
+    deriving Show
 
 -- | Whether an org member has permissions to administer the org.
 
 data OrgRole
   = OrgRole_Normal   -- ^ No, a regular user with no management permission
   | OrgRole_Manager  -- ^ Yes, this user is an org manager
+    deriving Show
 
 -- | Whether an org member gets access to Type Classes content.
 
 data OrgContentAccess
   = OrgContentAccess_Yes  -- ^ Yes, has access to content
   | OrgContentAccess_No   -- ^ No, the membership does not grant content access
+    deriving Show
 
-data Form =
-  Form
-    { form_org :: OrgId
-    , form_members :: MemberList
+data Roster =
+  Roster
+    { roster_org :: OrgId
+    , roster_members :: MemberList
     }
+  deriving Show
 
 data MemberList =
   MemberList
-    { members_existing :: [Existing]
+    { members_existing :: Map RosterOrdinal Modification
     , members_new :: [Member]
     }
-
-data Existing =
-  Existing
-    { existing_ordinal :: RosterOrdinal
-    , existing_mod :: Modification
-    }
+    deriving Show
 
 data Modification
   = Modification_Update Member
   | Modification_Delete
+    deriving Show
 
 data Member =
   Member
@@ -58,66 +69,61 @@ data Member =
     , member_role :: OrgRole
     , member_access :: OrgContentAccess
     }
+    deriving Show
 
-data Error = Error Text
+readRoster :: [FormParam] -> Either FormError Roster
+readRoster = parseEither rosterP
 
-readForm :: [FormParam] -> Either (NonEmpty Error) Form
-readForm = parseResultEither . parse formP
-
-formP :: Parser [] FormParam (NonEmpty Error) Form
-formP =
+rosterP :: Parser Roster
+rosterP =
   do
     members <- memberListP
     org <- orgP
-    return Form { form_org = org, form_members = members }
+    return Roster { roster_org = org, roster_members = members }
 
-orgP :: Parser [] FormParam (NonEmpty Error) OrgId
+orgP :: Parser OrgId
 orgP =
     fmap (\(k, v) -> OrgId v) $
-    key "org" *> one (Error "Wrong number of org parameters" :| [])
+    key "org" *> _ --one (Error "Wrong number of org parameters" :| [])
 
-memberListP :: Parser [] FormParam (NonEmpty Error) MemberList
-memberListP = prefix "members."
+memberListP :: Parser MemberList
+memberListP = prefix "members"
   do
-    existing <- existingListP
-    new <- newListP
+    existing <- key "existing" (natMap (modificationP <* nothing') <* nothing')
+    new <- key "new" (natList (memberP <* nothing') <* nothing')
     nothing'
     return MemberList{ members_existing = existing, members_new = new }
 
-existingListP :: Parser [] FormParam (NonEmpty Error) [Existing]
-existingListP = prefix "existing." (bracketList '[' ']' (\x -> existingP x <* nothing'))
-
-newListP :: Parser [] FormParam (NonEmpty Error) [Member]
-newListP = prefix "new." (bracketList '[' ']' (const (memberP <* nothing')))
-
-existingP :: Text -> Parser [] FormParam (NonEmpty Error) Existing
-existingP x =
-  do
-    o <- coerce @Natural @RosterOrdinal <$> trivialP_either (readNat x)
-    m <- modificationP
-    return Existing { existing_ordinal = o, existing_mod = m }
-
-modificationP :: Parser [] FormParam (NonEmpty Error) Modification
+modificationP :: Parser Modification
 modificationP =
   do
     m <- memberP
-    r <- (_ :: Parser [] FormParam (NonEmpty Error) Bool)
+    r <- checkbox "remove" "yes"
     return (if r then Modification_Delete else Modification_Update m)
 
-memberP :: Parser [] FormParam (NonEmpty Error) Member
+memberP :: Parser Member
 memberP = _
 
-bracketList :: Char -> Char -> (Text -> Parser [] FormParam e a) -> Parser [] FormParam e [a]
-bracketList a b f = _
-
-readNat :: Text -> Either (NonEmpty Error) Natural
-readNat = _
-
-prefix :: Text -> Parser [] FormParam err a -> Parser [] FormParam e a
-prefix x p = _
-
-key :: Text -> Parser [] FormParam err [Text]
-key k = _
-
-nothing' :: Parser bag item (NonEmpty Error) ()
+nothing' :: Parser ()
 nothing' = nothing (Error "Unrecognized field" :| []) ()
+
+test :: IO ()
+test = print (readRoster testInput)
+
+testInput :: [FormParam]
+testInput =
+  [ FormParam "members.existing[1].name" "Broccoli Rob"
+  , FormParam "members.existing[1].isManager" "yes"
+  , FormParam "members.existing[2].name" "Jingle Jangle"
+  , FormParam "members.existing[2].isUser" "yes"
+  , FormParam "members.existing[4].name" ""
+  , FormParam "members.existing[4].isUser" "yes"
+  , FormParam "members.existing[4].remove" "yes"
+  , FormParam "members.existing[7].name" "Hopscotch"
+  , FormParam "members.existing[7].isUser" "yes"
+  , FormParam "members.new[1].name" "Lunchbox"
+  , FormParam "members.new[2].isManager" "yes"
+  , FormParam "members.new[2].name" ""
+  , FormParam "csrfToken" "bf016ab"
+  , FormParam "org" "13f499c3"
+  ]
