@@ -26,8 +26,8 @@ library
     , DeriveFunctor
     , DerivingStrategies
     , DerivingVia
-    , FlexibleInstances
     , GADTs
+    , GeneralizedNewtypeDeriving
     , InstanceSigs
     , KindSignatures
     , ImplicitParams

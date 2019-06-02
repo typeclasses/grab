@@ -12,18 +12,20 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 
-(❌) :: Problem err => () -> StandardProblem -> Either (FormError err) a
-() ❌ x = Left (ParamError Nothing (fromStandardProblem x) :| [])
+failure :: err -> Either (FormError err) a
+failure x = Left (ParamError Nothing x :| [])
 
-(✅) :: () -> a -> Either e a
-() ✅ x = Right x
+success :: a -> Either e a
+success = Right
 
-checkbox :: Problem err => Text -> Parser err Bool
+checkbox
+    :: (Err_Missing err, Err_Duplicate err, Err_OnlyAllowed err)
+    => Text -> Parser err Bool
 checkbox yes = dump \case
-    []                                   ->  () ✅ False
-    [FormParam k v] | k == "", v == yes  ->  () ✅ True
-                    | k == ""            ->  () ❌ OnlyAllowed yes
-    _ : _ : _                            ->  () ❌ Duplicate
+    []                                   ->  success False
+    [FormParam k v] | k == "", v == yes  ->  success True
+                    | k == ""            ->  failure (err_onlyAllowed yes)
+    _ : _ : _                            ->  failure err_duplicate
 
 natMap :: Parser err a -> Parser err (Map Natural a)
 natMap = _
