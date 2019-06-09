@@ -2,22 +2,27 @@ module BagParse.Examples.OrgRoster where
 
 import qualified BagParse.Form.Types
 
-import BagParse.Form.Types (FormParam)
+import BagParse.Form.Types (Param (..))
 import BagParse.Form.Prelude
 import BagParse.Parser.Prelude (parseEither)
 
+import Data.Bifunctor
 import Data.Coerce
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Map (Map)
-import Data.Text (Text)
 import Numeric.Natural
+
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 
 type Parser a = BagParse.Form.Types.Parser Error a
 
-type FormError = BagParse.Form.Types.FormError Error
+type Error = BagParse.Form.Types.EnglishSentence
 
-data Error = Error Text
-    deriving Show
+type Log = BagParse.Form.Types.Log Error
 
 newtype OrgId = OrgId Text
     deriving Show
@@ -28,7 +33,7 @@ newtype OrgMemberName = OrgMemberName Text
 -- | A position in an org's member list.
 
 newtype RosterOrdinal = RosterOrdinal Natural
-    deriving Show
+    deriving (Show, Eq, Ord)
 
 -- | Whether an org member has permissions to administer the org.
 
@@ -71,7 +76,7 @@ data Member =
     }
     deriving Show
 
-readRoster :: [FormParam] -> Either FormError Roster
+readRoster :: [Param] -> Either Log Roster
 readRoster = parseEither rosterP
 
 rosterP :: Parser Roster
@@ -83,47 +88,58 @@ rosterP =
 
 orgP :: Parser OrgId
 orgP =
-    fmap (\(k, v) -> OrgId v) $
-    key "org" *> _ --one (Error "Wrong number of org parameters" :| [])
+    at "org" (coerce @Text @OrgId <$> text)
 
 memberListP :: Parser MemberList
-memberListP = prefix "members"
+memberListP = (at "members" . only)
   do
-    existing <- key "existing" (natMap (modificationP <* nothing') <* nothing')
-    new <- key "new" (natList (memberP <* nothing') <* nothing')
-    nothing'
+    existing <-
+        (Map.fromList . map (first (coerce @Natural @RosterOrdinal)) . Map.toList)
+        <$> (at "existing" . only) (natMap (only modificationP))
+    new <- (at "new" . only) (natList (only memberP))
     return MemberList{ members_existing = existing, members_new = new }
 
 modificationP :: Parser Modification
 modificationP =
   do
     m <- memberP
-    r <- checkbox "remove" "yes"
+    r <- at "remove" (checkbox "yes")
     return (if r then Modification_Delete else Modification_Update m)
 
 memberP :: Parser Member
-memberP = _
-
-nothing' :: Parser ()
-nothing' = nothing (Error "Unrecognized field" :| []) ()
+memberP =
+  do
+    name <- fmap (coerce @Text @OrgMemberName) <$> at "name" optionalText
+    role <-
+        (\case False -> OrgRole_Normal; True -> OrgRole_Manager)
+        <$> at "isManager" (checkbox "yes")
+    access <-
+        (\case False -> OrgContentAccess_No; True -> OrgContentAccess_Yes)
+        <$> at "isUser" (checkbox "yes")
+    return Member{ member_name = name, member_role = role, member_access = access }
 
 test :: IO ()
-test = print (readRoster testInput)
+test =
+  do
+    Just params <- traverse (\(k, v) -> Param <$> readName k <*> pure v) testInput
+    case readRoster testInput of
+      Left log -> Text.putStr (englishSentenceLogText log)
+      Right x -> print x
 
-testInput :: [FormParam]
+testInput :: [(Text, Text)]
 testInput =
-  [ FormParam "members.existing[1].name" "Broccoli Rob"
-  , FormParam "members.existing[1].isManager" "yes"
-  , FormParam "members.existing[2].name" "Jingle Jangle"
-  , FormParam "members.existing[2].isUser" "yes"
-  , FormParam "members.existing[4].name" ""
-  , FormParam "members.existing[4].isUser" "yes"
-  , FormParam "members.existing[4].remove" "yes"
-  , FormParam "members.existing[7].name" "Hopscotch"
-  , FormParam "members.existing[7].isUser" "yes"
-  , FormParam "members.new[1].name" "Lunchbox"
-  , FormParam "members.new[2].isManager" "yes"
-  , FormParam "members.new[2].name" ""
-  , FormParam "csrfToken" "bf016ab"
-  , FormParam "org" "13f499c3"
+  [ ("members.existing[1].name", "Broccoli Rob")
+  , ("members.existing[1].isManager", "yes")
+  , ("members.existing[2].name", "Jingle Jangle")
+  , ("members.existing[2].isUser", "yes")
+  , ("members.existing[4].name", "")
+  , ("members.existing[4].isUser", "yes")
+  , ("members.existing[4].remove", "yes")
+  , ("members.existing[7].name", "Hopscotch")
+  , ("members.existing[7].isUser", "yes")
+  , ("members.new[1].name", "Lunchbox")
+  , ("members.new[2].isManager", "yes")
+  , ("members.new[2].name", "")
+  , ("csrfToken", "bf016ab")
+  , ("org", "13f499c3")
   ]

@@ -1,33 +1,95 @@
-module BagParse.Parser.Prelude (parser, peek, parse, parseEither, parseMaybe, select) where
+module BagParse.Parser.Prelude
+  (
+
+  -- * Constructing parsers
+    parser, peek, select, dump
+
+  -- * Running parsers
+  , parse, parseHarvest, parseEither, parseMaybe
+
+  -- * Constructing parse results
+  , result
+
+  -- * Consuming parse results
+  , resultEither, resultMaybe
+
+  -- * Constructing harvests
+  , harvest, logHarvest
+
+  ) where
 
 import BagParse.Parser.Types
 
 import Data.Coerce
 
-parser :: (bag -> (bag, Either err a)) -> Parser bag err a
+parser :: (bag -> Result bag log a) -> Parser bag log a
 parser = Parser
 
--- | Peek inside the bag, but don't take anything.
-peek :: Parser bag err bag
-peek = parser (\bag -> (bag, Right bag))
+result :: bag -> Harvest log a -> Result bag log a
+result = Result
 
-parse :: Semigroup err => Parser bag err a -> bag -> (bag, Either err a)
+harvest :: log -> Maybe a -> Harvest log a
+harvest = Harvest
+
+logHarvest :: log -> Harvest log a
+logHarvest log = harvest log Nothing
+
+harvestMaybe :: Harvest log a -> Maybe a
+harvestMaybe (Harvest _ x) = x
+
+harvestEither :: Harvest log a -> Either log a
+harvestEither (Harvest log Nothing) = Left log
+harvestEither (Harvest _ (Just x)) = Right x
+
+resultBag :: Result bag log a -> bag
+resultBag (Result bag _ ) = bag
+
+resultHarvest :: Result bag log a -> Harvest log a
+resultHarvest (Result _ harvest) = harvest
+
+resultMaybe :: Result bag log a -> Maybe a
+resultMaybe = harvestMaybe . resultHarvest
+
+resultEither :: Result bag log a -> Either log a
+resultEither = harvestEither . resultHarvest
+
+-- | Peek inside the bag, but don't take anything.
+peek :: Monoid log => Parser bag log bag
+peek = parser \bag -> result bag (pure bag)
+
+parse :: Parser bag log a -> bag -> Result bag log a
 parse = coerce
 
-parseEither :: Semigroup err => Parser bag err a -> bag -> Either err a
-parseEither p = snd . parse p
+parseMaybe :: Parser bag log a -> bag -> Maybe a
+parseMaybe p = resultMaybe . parse p
 
-parseMaybe :: Semigroup err => Parser bag err a -> bag -> Maybe a
-parseMaybe p = viewRight . parseEither p
+parseEither :: Parser bag log a -> bag -> Either log a
+parseEither p = resultEither . parse p
 
-viewRight :: Either a b -> Maybe b
-viewRight = \case Left _ -> Nothing; Right x -> Just x
+parseHarvest :: Parser bag log a -> bag -> Harvest log a
+parseHarvest p = resultHarvest . parse p
 
-select :: Semigroup err => (bag -> (bag, bag')) -> Parser bag' err a -> Parser bag err a
-select f p = parser \bag ->
-  let (unselected, selected) = f bag
-      (_, result) = parse p selected
-  in  (unselected, result)
+dump
+    :: Monoid bag
+    => (bag -> Harvest log a)
+    -> Parser bag log a
+
+dump f =
+    parser \bag ->
+        Result mempty (f bag)
+
+select
+    :: (bag -> (bag, bag'))
+          -- ^ Splits the bag into (unselected, selected).
+    -> (bag' -> Harvest log a)
+    -> Parser bag  log a
+
+select f g = parser \bag ->
+    let
+        (unselected, selected) = f bag
+        h = g selected
+    in
+        result unselected h
 
 {-
 

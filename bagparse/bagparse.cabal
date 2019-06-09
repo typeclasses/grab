@@ -6,14 +6,16 @@ version: 0
 library
   hs-source-dirs: src
   default-language: Haskell2010
-  build-depends: base, containers, text
   ghc-options: -fdefer-typed-holes
+
+  build-depends:
+      base
+    , containers
+    , text
 
   exposed-modules:
       BagParse.Parser.Types
     , BagParse.Parser.Prelude
-    , BagParse.Parser.Validation
-    , BagParse.Parser.State
     , BagParse.List.Types
     , BagParse.List.Prelude
     , BagParse.Form.Types
