@@ -3,7 +3,7 @@ module BagParse.List.Types
 
     Parser
   , Result
-  , BagParse.Parser.Types.Harvest
+  , BagParse.Parser.Types.Yield
 
   ) where
 

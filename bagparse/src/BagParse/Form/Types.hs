@@ -3,7 +3,7 @@ module BagParse.Form.Types
 
     Parser
   , Result
-  , Harvest
+  , Yield
   , Form
   , Param (..)
   , Name (..)
@@ -44,8 +44,8 @@ type Parser err a =
 type Result err a =
     BagParse.List.Types.Result Param (Log err) a
 
-type Harvest err a =
-    BagParse.List.Types.Harvest (Log err) a
+type Yield err a =
+    BagParse.List.Types.Yield (Log err) a
 
 
 --- Input ---

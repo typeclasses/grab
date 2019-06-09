@@ -101,7 +101,7 @@ unexpected :: (Ord err, Err_Unexpected err) =>
     Parser err ()
 
 unexpected =
-    dump \case [] -> pure (); xs -> logHarvest (foldMap err xs)
+    dump \case [] -> pure (); xs -> logYield (foldMap err xs)
   where
     err (Param k _v) = (k .= err_unexpected)
 
@@ -113,11 +113,11 @@ only :: (Ord err, Err_Unexpected err) =>
 only =
     (<* unexpected)
 
-errorHarvest :: Ord err =>
-    err -> Harvest err a
+errorYield :: Ord err =>
+    err -> Yield err a
 
-errorHarvest x =
-    logHarvest (Name [] .= x)
+errorYield x =
+    logYield (Name [] .= x)
 
 text :: forall err.
     ( Ord err
@@ -129,11 +129,11 @@ text :: forall err.
 
 text = (only . here) (dump f)
   where
-    f :: Form -> Harvest err Text
+    f :: Form -> Yield err Text
     f = map paramValue >>> unique >>> \case
-        []         -> errorHarvest err_missing
+        []         -> errorYield err_missing
         x : []     -> pure x
-        _ : _ : [] -> errorHarvest err_duplicate
+        _ : _ : [] -> errorYield err_duplicate
 
 optionalText ::
     ( Ord err
@@ -147,7 +147,7 @@ optionalText =
         map paramValue >>> unique >>> \case
             []         -> pure Nothing
             x : []     -> pure (Just x)
-            _ : _ : [] -> errorHarvest err_duplicate
+            _ : _ : [] -> errorYield err_duplicate
 
 checkbox ::
     ( Ord err
@@ -162,7 +162,7 @@ checkbox yes =
         map paramValue >>> unique >>> List.partition (== yes) >>> \case
             ( []     , []    ) -> pure False
             ( _ : [] , []    ) -> pure True
-            ( _      , _ : _ ) -> errorHarvest (err_onlyAllowed yes)
+            ( _      , _ : _ ) -> errorYield (err_onlyAllowed yes)
 
 natMap :: forall err a. (Ord err) =>
     Parser err a ->
@@ -171,7 +171,7 @@ natMap :: forall err a. (Ord err) =>
 natMap p = select f g
   where
     f :: Param -> Maybe (Natural, Param)
-    g :: [(Natural, Param)] -> Harvest err (Map Natural a)
+    g :: [(Natural, Param)] -> Yield err (Map Natural a)
 
     f param =
         case (paramName param) of
@@ -187,7 +187,7 @@ natMap p = select f g
                     Map.empty
                     (map (\(n, param) -> Map.singleton n [param]) xs)
         in
-            (_ :: Harvest err (Map Natural a))
+            (_ :: Yield err (Map Natural a))
 
 natList :: (Ord err) =>
     Parser err a -> Parser err [a]
@@ -201,7 +201,7 @@ here :: Ord err =>
 here p =
     select
     (\param -> if (paramName param == Name []) then Just param else Nothing)
-    (\params -> parseHarvest p params)
+    (\params -> parseYield p params)
 
 contextualizeLog :: forall err.
     (Name -> Name) -> Log err -> Log err
@@ -218,7 +218,7 @@ alterMapKeys f =
     Map.fromList . map (first f) . Map.toList
 
 at :: Ord err =>
-    Text -> (Form -> Harvest err a) -> Parser err a
+    Text -> (Form -> Yield err a) -> Parser err a
 
 at k f =
     first (contextualizeLog (\(Name xs) -> Name (NameStr k : xs))) $

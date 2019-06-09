@@ -5,7 +5,7 @@ module BagParse.Parser.Prelude
     parser, peek, select, dump
 
   -- * Running parsers
-  , parse, parseHarvest, parseEither, parseMaybe
+  , parse, parseYield, parseEither, parseMaybe
 
   -- * Constructing parse results
   , result
@@ -13,8 +13,8 @@ module BagParse.Parser.Prelude
   -- * Consuming parse results
   , resultEither, resultMaybe
 
-  -- * Constructing harvests
-  , harvest, logHarvest
+  -- * Constructing yields
+  , yield, logYield
 
   ) where
 
@@ -25,33 +25,33 @@ import Data.Coerce
 parser :: (bag -> Result bag log a) -> Parser bag log a
 parser = Parser
 
-result :: bag -> Harvest log a -> Result bag log a
+result :: bag -> Yield log a -> Result bag log a
 result = Result
 
-harvest :: log -> Maybe a -> Harvest log a
-harvest = Harvest
+yield :: log -> Maybe a -> Yield log a
+yield = Yield
 
-logHarvest :: log -> Harvest log a
-logHarvest log = harvest log Nothing
+logYield :: log -> Yield log a
+logYield log = yield log Nothing
 
-harvestMaybe :: Harvest log a -> Maybe a
-harvestMaybe (Harvest _ x) = x
+yieldMaybe :: Yield log a -> Maybe a
+yieldMaybe (Yield _ x) = x
 
-harvestEither :: Harvest log a -> Either log a
-harvestEither (Harvest log Nothing) = Left log
-harvestEither (Harvest _ (Just x)) = Right x
+yieldEither :: Yield log a -> Either log a
+yieldEither (Yield log Nothing) = Left log
+yieldEither (Yield _ (Just x)) = Right x
 
 resultBag :: Result bag log a -> bag
 resultBag (Result bag _ ) = bag
 
-resultHarvest :: Result bag log a -> Harvest log a
-resultHarvest (Result _ harvest) = harvest
+resultYield :: Result bag log a -> Yield log a
+resultYield (Result _ yield) = yield
 
 resultMaybe :: Result bag log a -> Maybe a
-resultMaybe = harvestMaybe . resultHarvest
+resultMaybe = yieldMaybe . resultYield
 
 resultEither :: Result bag log a -> Either log a
-resultEither = harvestEither . resultHarvest
+resultEither = yieldEither . resultYield
 
 -- | Peek inside the bag, but don't take anything.
 peek :: Monoid log => Parser bag log bag
@@ -66,12 +66,12 @@ parseMaybe p = resultMaybe . parse p
 parseEither :: Parser bag log a -> bag -> Either log a
 parseEither p = resultEither . parse p
 
-parseHarvest :: Parser bag log a -> bag -> Harvest log a
-parseHarvest p = resultHarvest . parse p
+parseYield :: Parser bag log a -> bag -> Yield log a
+parseYield p = resultYield . parse p
 
 dump
     :: Monoid bag
-    => (bag -> Harvest log a)
+    => (bag -> Yield log a)
     -> Parser bag log a
 
 dump f =
@@ -81,7 +81,7 @@ dump f =
 select
     :: (bag -> (bag, bag'))
           -- ^ Splits the bag into (unselected, selected).
-    -> (bag' -> Harvest log a)
+    -> (bag' -> Yield log a)
     -> Parser bag  log a
 
 select f g = parser \bag ->

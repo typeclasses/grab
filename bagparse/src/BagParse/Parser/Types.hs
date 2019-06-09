@@ -3,7 +3,7 @@ module BagParse.Parser.Types
 
     Parser (..)
   , Result (..)
-  , Harvest (..)
+  , Yield (..)
 
   ) where
 
@@ -14,7 +14,7 @@ import Data.Functor.Compose
 
 --- Types ---
 
-{- | A parser consumes some portion (none, part, or all) or its input (the "bag"), and returns a 'Result' which contains the remaining unconsumed input and whatever was harvested from the bag.
+{- | A parser consumes some portion (none, part, or all) or its input (the "bag"), and returns a 'Result' which contains the remaining unconsumed input and whatever was yielded from the bag.
 
 Type parameters:
 
@@ -41,7 +41,7 @@ Type parameters:
 data Result bag log a =
   Result
     bag             -- ^ Any unconsumed portion of the input
-    (Harvest log a) -- ^ The product of what was reaped from the bag
+    (Yield log a) -- ^ The product of what was reaped from the bag
 
 {- | What a parser has produced from the portion of input that it consumed.
 
@@ -52,8 +52,8 @@ Type parameters:
 
 -}
 
-data Harvest log a =
-  Harvest
+data Yield log a =
+  Yield
     log       -- ^ Any errors or warnings emitted while parsing
     (Maybe a) -- ^ 'Just' for the outcome of a successful parse,
               --   'Nothing' for parse failure.
@@ -65,13 +65,13 @@ deriving stock instance Functor (Parser bag log)
 
 deriving stock instance Functor (Result bag log)
 
-deriving stock instance Functor (Harvest log)
+deriving stock instance Functor (Yield log)
 
 
 --- Bifunctors ---
 
-instance Bifunctor Harvest where
-    bimap = bimapHarvest
+instance Bifunctor Yield where
+    bimap = bimapYield
 
 instance Bifunctor (Result bag) where
     bimap = bimapResult
@@ -79,14 +79,14 @@ instance Bifunctor (Result bag) where
 instance Bifunctor (Parser bag) where
     bimap = bimapParser
 
-bimapHarvest :: forall log log' a a'.
+bimapYield :: forall log log' a a'.
     (log -> log') ->
     (a -> a') ->
-    Harvest log  a ->
-    Harvest log' a'
+    Yield log  a ->
+    Yield log' a'
 
-bimapHarvest f g (Harvest log a) =
-    Harvest (f log) (fmap g a)
+bimapYield f g (Yield log a) =
+    Yield (f log) (fmap g a)
 
 bimapResult :: forall bag log log' a a'.
     (log -> log') ->
@@ -94,8 +94,8 @@ bimapResult :: forall bag log log' a a'.
     Result bag log  a ->
     Result bag log' a'
 
-bimapResult f g (Result bag harvest) =
-    Result bag (bimapHarvest f g harvest)
+bimapResult f g (Result bag yield) =
+    Result bag (bimapYield f g yield)
 
 bimapParser :: forall bag log log' a a'.
     (log -> log') ->
@@ -109,33 +109,33 @@ bimapParser f g (Parser p) =
 
 --- Applicative functor ---
 
-instance Monoid log => Applicative (Harvest log) where
-    pure = harvestPure
-    (<*>) = harvestAp
+instance Monoid log => Applicative (Yield log) where
+    pure = yieldPure
+    (<*>) = yieldAp
 
 instance Monoid log => Applicative (Parser bag log) where
     pure = parserPure
     (<*>) = parserAp
 
-harvestPure :: forall log a. Monoid log =>
-    a -> Harvest log a
+yieldPure :: forall log a. Monoid log =>
+    a -> Yield log a
 
-harvestPure x = Harvest mempty (Just x)
+yieldPure x = Yield mempty (Just x)
 
 parserPure :: forall bag log a. Monoid log =>
     a -> Parser bag log a
 
 parserPure x =
     Parser \bag ->
-        Result bag (harvestPure x)
+        Result bag (yieldPure x)
 
-harvestAp :: forall log x a. Semigroup log =>
-    Harvest log (x -> a) ->
-    Harvest log x ->
-    Harvest log a
+yieldAp :: forall log x a. Semigroup log =>
+    Yield log (x -> a) ->
+    Yield log x ->
+    Yield log a
 
-harvestAp (Harvest log1 f) (Harvest log2 x) =
-    Harvest (log1 <> log2) (f <*> x)
+yieldAp (Yield log1 f) (Yield log2 x) =
+    Yield (log1 <> log2) (f <*> x)
 
 parserAp :: forall bag log x a. Semigroup log =>
     Parser bag log (x -> a) ->
@@ -148,4 +148,4 @@ parserAp (Parser pf) (Parser px) =
             Result bag'  h1 = pf bag
             Result bag'' h2 = px bag'
         in
-            Result bag'' (harvestAp h1 h2)
+            Result bag'' (yieldAp h1 h2)
