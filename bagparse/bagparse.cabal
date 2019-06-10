@@ -22,13 +22,13 @@ library
     , BagParse.Form.Types
     , BagParse.Form.Errors
     , BagParse.Form.English
+    , BagParse.Form.Input
+    , BagParse.Form.Log
     , BagParse.Form.Name
     , BagParse.Form.Prelude
-    , BagParse.Examples.OrgRoster
 
   default-extensions:
-      ApplicativeDo
-    , BlockArguments
+      BlockArguments
     , DeriveFunctor
     , DerivingStrategies
     , DerivingVia
@@ -44,3 +44,24 @@ library
     , TypeApplications
     , UnicodeSyntax
     , ViewPatterns
+
+test-suite OrgRoster
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  hs-source-dirs: test
+  main-is: OrgRoster.hs
+
+  build-depends:
+      bagparse
+    , base
+    , containers
+    , hedgehog
+    , text
+
+  default-extensions:
+      ApplicativeDo
+    , BlockArguments
+    , LambdaCase
+    , OverloadedStrings
+    , ScopedTypeVariables
+    , TemplateHaskell

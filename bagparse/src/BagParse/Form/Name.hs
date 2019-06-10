@@ -66,6 +66,8 @@ stripNat _ = Nothing
 
 deriving stock instance Eq NamePart
 deriving stock instance Ord NamePart
+deriving stock instance Show NamePart
 
 deriving stock instance Eq Name
 deriving stock instance Ord Name
+deriving stock instance Show Name

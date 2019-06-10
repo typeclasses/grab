@@ -20,3 +20,4 @@ data Param =
 
 deriving stock instance Eq Param
 deriving stock instance Ord Param
+deriving stock instance Show Param
