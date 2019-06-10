@@ -1,32 +1,180 @@
 module BagParse.Parser.Prelude
-  (
 
-  -- * Constructing parsers
-    parser, peek, select, dump
+  ( nil
 
-  -- * Running parsers
-  , parse, parseYield, parseEither, parseMaybe
+  -- * Entering the Action type
+  , log, value, valueMaybe, select, dump
 
-  -- * Constructing parse results
-  , result
+  -- * Within the Action type
+  , discardRemainder, run, (>->)
 
-  -- * Consuming parse results
-  , resultEither, resultMaybe
-
-  -- * Constructing yields
-  , yield, logYield
+  -- * Exiting the Action type
+  , toValueMaybe, toLogOrValue, toLog, toLogAndValue, toRemainder
 
   ) where
+
+import Prelude (Maybe (..), Either (..), Semigroup (..), Monoid (..))
 
 import BagParse.Parser.Types
 
 import Data.Coerce
 
-parser :: (bag -> Result bag log a) -> Parser bag log a
-parser = Parser
 
-result :: bag -> Yield log a -> Result bag log a
-result = Result
+--- Entering the Action type ---
+
+nil :: Monoid log => Action bag bag log value
+nil =
+    Action \bag ->
+        (bag, mempty, Nothing)
+
+log ::
+    log ->
+    Action () () log value
+
+log x =
+    Action \() ->
+        ((), x, Nothing)
+
+value :: Monoid log =>
+    value ->
+    Action () () log value
+
+value x =
+    valueMaybe (Just x)
+
+valueMaybe :: Monoid log =>
+    Maybe value ->
+    Action () () log value
+
+valueMaybe x =
+    Action \() ->
+        ((), mempty, x)
+
+select :: Monoid log =>
+    (input -> (remainder, selection)) ->
+    Action input remainder log selection
+
+select f =
+    Action \i ->
+        let
+            (r, s) = f i
+        in
+            (r, mempty, Just s)
+
+dump ::
+    (input -> Product log value) ->
+    Dump input log value
+
+dump f =
+    Action \i ->
+        let
+            p = f i
+        in
+            ((), toLog p, toValueMaybe p)
+
+
+--- Within the Action type ---
+
+(>->) :: (Semigroup log) =>
+    Action input remainder log x ->
+    Dump x log value ->
+    Action input remainder log value
+
+(>->) (Action f) (Action g) =
+    Action \i ->
+        let
+            (x, y, z) = f i
+        in
+            case z of
+                Nothing -> (x, y, Nothing)
+                Just a ->
+                    let
+                        ((), y', z') = g a
+                    in
+                        (x, y <> y', z')
+
+run ::
+    input ->
+    Action input remainder log value ->
+    Action ()    remainder log value
+
+run x (Action f) =
+    Action \() ->
+        f x
+
+discardRemainder ::
+    Action input remainder log value ->
+    Action input ()        log value
+
+discardRemainder (Action f) =
+    Action \bag ->
+        let
+            (_, y, z) = f bag
+        in
+            ((), y, z)
+
+
+--- Exiting the Action type ---
+
+toValueMaybe ::
+    Action () remainder log value ->
+    Maybe value
+
+toValueMaybe (Action f) =
+    let
+        (_x, _y, z) = f ()
+    in
+        z
+
+toLogOrValue ::
+    Action () remainder log value ->
+    Either log value
+
+toLogOrValue (Action f) =
+    let
+        (_x, y, z) = f ()
+    in
+        case z of
+            Nothing -> Left y
+            Just v -> Right v
+
+toLog ::
+    Action () remainder log value ->
+    log
+
+toLog (Action f) =
+    let
+        (_x, y, _z) = f ()
+    in
+        y
+
+toLogAndValue ::
+    Action () remainder log value ->
+    (log, Maybe value)
+
+toLogAndValue (Action f) =
+    let
+        (_x, y, z) = f ()
+    in
+        (y, z)
+
+toRemainder ::
+    Action () remainder log value ->
+    remainder
+
+toRemainder (Action f) =
+    let
+        (x, _y, _z) = f ()
+    in
+        x
+
+{-
+
+grab :: (bag -> Result bag log a) -> Grab bag log a
+grab f = _
+
+grabResult :: bag -> Yield log a -> GrabResult bag log a
+grabResult = GrabResult
 
 yield :: log -> Maybe a -> Yield log a
 yield = Yield
@@ -41,88 +189,59 @@ yieldEither :: Yield log a -> Either log a
 yieldEither (Yield log Nothing) = Left log
 yieldEither (Yield _ (Just x)) = Right x
 
-resultBag :: Result bag log a -> bag
-resultBag (Result bag _ ) = bag
+grabResultBag :: GrabResult bag log a -> bag
+grabResultBag (GrabResult bag _ ) = bag
 
-resultYield :: Result bag log a -> Yield log a
-resultYield (Result _ yield) = yield
+grabResultYield :: GrabResult bag log a -> Yield log a
+grabResultYield (GrabResult _ yield) = yield
 
-resultMaybe :: Result bag log a -> Maybe a
-resultMaybe = yieldMaybe . resultYield
+grabResultMaybe :: GrabResult bag log a -> Maybe a
+grabResultMaybe = yieldMaybe . grabResultYield
 
-resultEither :: Result bag log a -> Either log a
-resultEither = yieldEither . resultYield
+grabResultEither :: GrabResult bag log a -> Either log a
+grabResultEither = yieldEither . grabResultYield
 
 -- | Peek inside the bag, but don't take anything.
-peek :: Monoid log => Parser bag log bag
-peek = parser \bag -> result bag (pure bag)
+peek :: Monoid log => Grab bag log bag
+peek = Grab \bag -> GrabResult bag (pure bag)
 
-parse :: Parser bag log a -> bag -> Result bag log a
-parse = coerce
+runGrab :: Grab bag log a -> bag -> GrabResult bag log a
+runGrab = coerce
 
-parseMaybe :: Parser bag log a -> bag -> Maybe a
-parseMaybe p = resultMaybe . parse p
+runGrabMaybe :: Grab bag log a -> bag -> Maybe a
+runGrabMaybe p = grabResultMaybe . runGrab p
 
-parseEither :: Parser bag log a -> bag -> Either log a
-parseEither p = resultEither . parse p
+runGrabEither :: Grab bag log a -> bag -> Either log a
+runGrabEither p = grabResultEither . runGrab p
 
-parseYield :: Parser bag log a -> bag -> Yield log a
-parseYield p = resultYield . parse p
+runGrabYield :: Grab bag log a -> bag -> Yield log a
+runGrabYield p = grabResultYield . runGrab p
 
-dump
+runDump :: Dump bag log a -> bag -> Yield log a
+runDump = coerce
+
+dump :: (bag -> Yield log a) -> Dump bag log a
+dump = coerce
+
+grabAll
     :: Monoid bag
-    => (bag -> Yield log a)
-    -> Parser bag log a
+    => Dump bag log a
+    -> Grab bag log a
 
-dump f =
-    parser \bag ->
-        Result mempty (f bag)
+grabAll (Dump f) =
+    Grab \bag ->
+        grabResult mempty (f bag)
 
-select
+grabSome
     :: (bag -> (bag, bag'))
           -- ^ Splits the bag into (unselected, selected).
-    -> (bag' -> Yield log a)
-    -> Parser bag  log a
+    -> Dump bag' log a
+    -> Grab bag log a
 
-select f g = parser \bag ->
+grabSome f d = grab \bag ->
     let
         (unselected, selected) = f bag
-        h = g selected
     in
-        result unselected h
-
-{-
-
-trivialP_maybe :: Maybe a -> Parser bag () a
-trivialP_maybe = \case Just x -> parseSuccess x; Nothing -> parseFailure ()
-
-trivialP_either :: Either err a -> Parser bag err a
-trivialP_either = \case Left x -> parseFailure x; Right x -> parseSuccess x
-
-nothing :: err -> a -> Parser [x] err a
-nothing err x = Parser
-  \case [] -> ([], Right x)
-        _  -> ([], Left err)
-
-parseSuccess :: a -> Parser bag err a
-parseSuccess x = Parser (\bag -> (bag, Right x))
-
-parseFailure :: err -> Parser bag err a
-parseFailure err = Parser (\bag -> (bag, Left err))
-
-one :: err -> Parser [a] err a
-one err = Parser \case
-  [x] -> ([], Right x)
-  _ -> ([], Left err)
-
-parseResultEither :: ParseResult bag err a -> Either err a
-parseResultEither (ParseResult _ x) = x
-
-data ParseResult bag err a = ParseResult bag (Either err a)
-
-parse :: Semigroup err => Parser bag err a -> bag -> ParseResult bag err a
-parse p bag =
-    let (bag', value) = coerce p bag
-    in  ParseResult bag' value
+        grabResult unselected (runDump d selected)
 
 -}

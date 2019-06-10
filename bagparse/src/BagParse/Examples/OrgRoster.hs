@@ -1,10 +1,11 @@
 module BagParse.Examples.OrgRoster where
 
-import qualified BagParse.Form.Types
+import qualified BagParse.Form.Types as X
+import qualified BagParse.Form.Name as X
+import qualified BagParse.Form.Log as X
 
-import BagParse.Form.Types (Param (..))
+import BagParse.Form.Input (Form (..), Param (..))
 import BagParse.Form.Prelude
-import BagParse.Parser.Prelude (parseEither)
 
 import Data.Bifunctor
 import Data.Coerce
@@ -18,11 +19,12 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 
-type Parser a = BagParse.Form.Types.Parser Error a
-
-type Error = BagParse.Form.Types.EnglishSentence
-
-type Log = BagParse.Form.Types.Log Error
+type Error = EnglishSentence
+type Grab value = X.Grab Error value
+type Log = X.Log Error
+type Result value = X.Result Error value
+type Dump value = X.Dump Error value
+type Product value = X.Product Error value
 
 newtype OrgId = OrgId Text
     deriving Show
@@ -76,55 +78,57 @@ data Member =
     }
     deriving Show
 
-readRoster :: [Param] -> Either Log Roster
-readRoster = parseEither rosterP
+roster :: Grab Roster
+roster =
+    Roster
+        <$> (at "org" >-> only org)
+        <*> (at "members" >-> only memberList)
 
-rosterP :: Parser Roster
-rosterP =
+org :: Grab OrgId
+org = fmap OrgId text
+
+memberList :: Grab MemberList
+memberList =
+    MemberList
+        <$> (at "existing" >-> only existingList)
+        <*> (at "new" >-> only (natList (only member)))
+
+existingList :: Grab (Map RosterOrdinal Modification)
+existingList =
+    fmap (Map.fromList . map (first RosterOrdinal))
+    (natListWithIndex (only modification))
+
+modification :: Grab Modification
+modification =
   do
-    members <- memberListP
-    org <- orgP
-    return Roster { roster_org = org, roster_members = members }
-
-orgP :: Parser OrgId
-orgP =
-    at "org" (coerce @Text @OrgId <$> text)
-
-memberListP :: Parser MemberList
-memberListP = (at "members" . only)
-  do
-    existing <-
-        (Map.fromList . map (first (coerce @Natural @RosterOrdinal)) . Map.toList)
-        <$> (at "existing" . only) (natMap (only modificationP))
-    new <- (at "new" . only) (natList (only memberP))
-    return MemberList{ members_existing = existing, members_new = new }
-
-modificationP :: Parser Modification
-modificationP =
-  do
-    m <- memberP
-    r <- at "remove" (checkbox "yes")
+    m <- member
+    r <- at "remove" >-> only (checkbox "yes")
     return (if r then Modification_Delete else Modification_Update m)
 
-memberP :: Parser Member
-memberP =
-  do
-    name <- fmap (coerce @Text @OrgMemberName) <$> at "name" optionalText
-    role <-
-        (\case False -> OrgRole_Normal; True -> OrgRole_Manager)
-        <$> at "isManager" (checkbox "yes")
-    access <-
-        (\case False -> OrgContentAccess_No; True -> OrgContentAccess_Yes)
-        <$> at "isUser" (checkbox "yes")
-    return Member{ member_name = name, member_role = role, member_access = access }
+member :: Grab Member
+member =
+    Member
+        <$> (at "name" >-> only (fmap (fmap OrgMemberName) optionalText))
+        <*> (at "isManager" >-> only (fmap isManagerRole (checkbox "yes")))
+        <*> (at "isUser" >-> only (fmap isUserAccess (checkbox "yes")))
+
+isManagerRole :: Bool -> OrgRole
+isManagerRole = \case False -> OrgRole_Normal; True -> OrgRole_Manager
+
+isUserAccess :: Bool -> OrgContentAccess
+isUserAccess = \case False -> OrgContentAccess_No; True -> OrgContentAccess_Yes
 
 test :: IO ()
 test =
   do
-    Just params <- traverse (\(k, v) -> Param <$> readName k <*> pure v) testInput
-    case readRoster testInput of
-      Left log -> Text.putStr (englishSentenceLogText log)
-      Right x -> print x
+    let params = map (\(k, v) -> Param (readName k) v) testInput
+    let (log, may :: Maybe Roster) = toLogAndValue (run (Form params id) roster)
+
+    putStrLn "Log:"
+    Text.putStr (englishSentenceLogText log)
+
+    putStrLn "Value:"
+    print may
 
 testInput :: [(Text, Text)]
 testInput =

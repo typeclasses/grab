@@ -1,9 +1,10 @@
 module BagParse.Parser.Types
   (
+  -- * The main type
+    Action (..)
 
-    Parser (..)
-  , Result (..)
-  , Yield (..)
+  -- * Type aliases
+  , Grab, Dump, Result, Product
 
   ) where
 
@@ -12,140 +13,104 @@ import Data.Coerce
 import Data.Functor.Compose
 
 
---- Types ---
+--- The main type ---
 
-{- | A parser consumes some portion (none, part, or all) or its input (the "bag"), and returns a 'Result' which contains the remaining unconsumed input and whatever was yielded from the bag.
+{- |
 
-Type parameters:
+An 'Action':
 
-  - @bag@ - The parser's input (typically some collection like a list, set, or map)
-  - @log@ - Any warnings or errors (typically a 'Monoid')
-  - @a@ - A value that the parser produces when it successfully parses the bag.
+  - Consumes some portion (none, part, or all) of its @input@;
+  - Returns:
+    - The @remainder@ of the unconsumed input;
+    - Some monoidal @log@ e.g. a list of error messages;
+    - Some @value@ produced from the consumed input.
 
--}
+Specializations of this type:
 
-newtype Parser bag log a =
-  Parser
-    (bag -> Result bag log a)
-
-{- | The result of running a parser.
-
-Type parameters:
-
-  - @bag@ - The parser's input (typically some collection like a list, set, or map)
-  - @log@ - Any warnings or errors (typically a 'Monoid')
-  - @a@ - A value that is present if the parsing was successful.
+  - If the @input@ and @remainder@ types are the same, the action is a 'Grab'.
+  - If the @remainder@ is @()@, the action is a 'Dump'; it dumps out the entire input so there is nothing remaining.
+  - If the input is @()@, the action is just a single fixed 'Result', which consists of the @remainder@, @log@, and @Maybe value@.
+  - If both the input and remainder are @()@, the output is just the 'Product', which consists of the @log@ and @Maybe value@.
 
 -}
 
-data Result bag log a =
-  Result
-    bag             -- ^ Any unconsumed portion of the input
-    (Yield log a) -- ^ The product of what was reaped from the bag
+data Action input remainder log value =
+  Action
+    (input -> (remainder, log, Maybe value))
 
-{- | What a parser has produced from the portion of input that it consumed.
+
+--- Type aliases ---
+
+{- |
+
+A 'Grab' consumes some portion (none, part, or all) of its input, and returns a 'Result' which contains the remaining unconsumed input and whatever was yielded from the bag.
 
 Type parameters:
 
+  - @bag@ - The grab's input (typically some collection like a list, set, or map)
   - @log@ - Any warnings or errors (typically a 'Monoid')
-  - @a@ - A value that is present if the parsing was successful.
+  - @a@ - A value that the grab produces when it successfully grabs from the bag.
 
 -}
 
-data Yield log a =
-  Yield
-    log       -- ^ Any errors or warnings emitted while parsing
-    (Maybe a) -- ^ 'Just' for the outcome of a successful parse,
-              --   'Nothing' for parse failure.
+type Grab bag log value = Action bag bag log value
+
+{- | The result of performing a 'Grab'. -}
+
+type Result remainder log value = Action () remainder log value
+
+{- | A 'Dump' is a 'Grab' the consumes the entire bag. -}
+
+type Dump input log value = Action input () log value
+
+{- | The outcome produced by performing a 'Dump'. -}
+
+type Product log value = Action () () log value
 
 
---- Functors ---
+--- Functor ---
 
-deriving stock instance Functor (Parser bag log)
-
-deriving stock instance Functor (Result bag log)
-
-deriving stock instance Functor (Yield log)
-
-
---- Bifunctors ---
-
-instance Bifunctor Yield where
-    bimap = bimapYield
-
-instance Bifunctor (Result bag) where
-    bimap = bimapResult
-
-instance Bifunctor (Parser bag) where
-    bimap = bimapParser
-
-bimapYield :: forall log log' a a'.
-    (log -> log') ->
-    (a -> a') ->
-    Yield log  a ->
-    Yield log' a'
-
-bimapYield f g (Yield log a) =
-    Yield (f log) (fmap g a)
-
-bimapResult :: forall bag log log' a a'.
-    (log -> log') ->
-    (a -> a') ->
-    Result bag log  a ->
-    Result bag log' a'
-
-bimapResult f g (Result bag yield) =
-    Result bag (bimapYield f g yield)
-
-bimapParser :: forall bag log log' a a'.
-    (log -> log') ->
-    (a -> a') ->
-    Parser bag log  a ->
-    Parser bag log' a'
-
-bimapParser f g (Parser p) =
-    Parser \bag -> bimapResult f g (p bag)
+deriving stock instance Functor (Action input remainder log)
 
 
 --- Applicative functor ---
 
-instance Monoid log => Applicative (Yield log) where
-    pure = yieldPure
-    (<*>) = yieldAp
+instance (input ~ remainder, Monoid log) =>
+  Applicative (Action input remainder log) where
+    pure = actionPure
+    (<*>) = actionAp
 
-instance Monoid log => Applicative (Parser bag log) where
-    pure = parserPure
-    (<*>) = parserAp
+actionPure :: Monoid log => a -> Action bag bag log a
+actionPure a = Action \bag -> (bag, mempty, Just a)
 
-yieldPure :: forall log a. Monoid log =>
-    a -> Yield log a
+actionAp :: Monoid log =>
+    Action bag bag log (x -> a) ->
+    Action bag bag log x ->
+    Action bag bag log a
 
-yieldPure x = Yield mempty (Just x)
-
-parserPure :: forall bag log a. Monoid log =>
-    a -> Parser bag log a
-
-parserPure x =
-    Parser \bag ->
-        Result bag (yieldPure x)
-
-yieldAp :: forall log x a. Semigroup log =>
-    Yield log (x -> a) ->
-    Yield log x ->
-    Yield log a
-
-yieldAp (Yield log1 f) (Yield log2 x) =
-    Yield (log1 <> log2) (f <*> x)
-
-parserAp :: forall bag log x a. Semigroup log =>
-    Parser bag log (x -> a) ->
-    Parser bag log x ->
-    Parser bag log a
-
-parserAp (Parser pf) (Parser px) =
-    Parser \bag ->
+actionAp (Action pf) (Action px) =
+    Action \bag ->
         let
-            Result bag'  h1 = pf bag
-            Result bag'' h2 = px bag'
+            (bag',  log1, f) = pf bag
+            (bag'', log2, x) = px bag'
         in
-            Result bag'' (yieldAp h1 h2)
+            (bag'', log1 <> log2, f <*> x)
+
+
+--- Bifunctor ---
+
+instance Bifunctor (Action input remainder) where
+    bimap = bimapAction
+
+bimapAction :: forall input remainder log log' a a'.
+    (log -> log') ->
+    (a -> a') ->
+    Action input remainder log  a ->
+    Action input remainder log' a'
+
+bimapAction f g (Action x) =
+    Action \bag ->
+        let
+            (bag', log, a) = x bag
+        in
+            (bag', f log, fmap @Maybe g a)

@@ -1,5 +1,6 @@
 cabal-version: 2.4
 
+-- todo: rename to grab-bag
 name: bagparse
 version: 0
 
@@ -19,6 +20,9 @@ library
     , BagParse.List.Types
     , BagParse.List.Prelude
     , BagParse.Form.Types
+    , BagParse.Form.Errors
+    , BagParse.Form.English
+    , BagParse.Form.Name
     , BagParse.Form.Prelude
     , BagParse.Examples.OrgRoster
 

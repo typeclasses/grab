@@ -1,37 +1,38 @@
 module BagParse.Form.Prelude
-  (
+  ( module BagParse.Form.Name
+  , module BagParse.Form.Errors
+  , module BagParse.Form.English
 
-  -- * Value interpretation
-    checkbox
-  , text
-  , optionalText
+  , X.nil
 
-  -- * Selecting params by name
-  , here
-  , at
-  , natMap
-  , natList
+  -- * Simple form fields
+  , text, optionalText, checkbox
 
-  -- * Failing on unexpected params
-  , unexpected
-  , only
+  -- * Entering the Action type
+  , X.log, X.value, X.select, at, here
 
-  -- * Displaying errors
-  , englishSentenceLogText
+  -- * Within the Action type
+  , X.discardRemainder, X.run, (>->), only, natList, natListWithIndex
 
-  -- * Names
-  , readName
-  , showName
+  -- * Exiting the Action type
+  , X.toValueMaybe, X.toLogOrValue, X.toLogAndValue, X.toLog, X.toRemainder
+
 
   ) where
 
+import BagParse.Form.English
+import BagParse.Form.Errors
+import BagParse.Form.Input
+import BagParse.Form.Log
 import BagParse.Form.Types
-import BagParse.List.Prelude
+import BagParse.Form.Name
 
-import qualified BagParse.List.Types
+import qualified BagParse.Parser.Prelude as X
+import BagParse.Parser.Prelude ((>->))
 
 import Data.Bifunctor
 import Data.Coerce
+import Data.Function
 import Numeric.Natural
 
 import qualified Data.Foldable as Foldable
@@ -48,137 +49,71 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Read as Text
 
-showName :: Name -> Text
-showName (Name []) = ""
-showName (Name (x : xs)) = showNamePart x <> showNameRemainder xs
-  where
-    showNameRemainder [] = ""
-    showNameRemainder (y : ys) = "." <> showNamePart' y <> showNameRemainder ys
+at :: Ord err =>
+    NamePart ->
+    Grab err Form
 
-    showNamePart (NameStr s) = s
-    showNamePart (NameNat n) = showNat n
+at k =
+    X.select (formPrefixPartition k)
 
-    showNamePart' (NameStr s) = "." <> s
-    showNamePart' (NameNat n) = showNat n
+formPrefixPartition :: NamePart -> Form -> (Form, Form)
+formPrefixPartition k (Form xs ctx) =
+    let
+        (r, s) = partitionMaybe (namePrefixPartition k) xs
+    in
+        (Form r ctx, Form s (ctx . coerce (k :)))
 
-    showNat n = "[" <> Text.pack (show @Natural n) <> "]"
+namePrefixPartition :: NamePart -> Param -> Maybe Param
+namePrefixPartition k (Param name value) =
+    case name of
+        Name (x : xs) | x == k ->
+            Just (Param (Name xs) value)
+        _ ->
+            Nothing
 
-readName :: Text -> Maybe Name
-readName =
-    Text.span (\c -> not (elem c (".[]" :: [Char]))) >>>
+here :: Ord err =>
+    Grab err Form
+
+here =
+    X.select \(Form xs ctx) ->
+        let
+            (r, s) = partitionMaybe herePartition xs
+        in
+            (Form r ctx, Form s ctx)
+
+herePartition :: Param -> Maybe Param
+herePartition p@(Param name value) =
+    case name of
+        Name [] -> Just p
+        _ -> Nothing
+
+partitionMaybe :: (a -> Maybe b) -> [a] -> ([a], [b])
+partitionMaybe f = fix \r ->
     \case
-        (Text.null -> True, _) -> Nothing
-        (s, x) -> cons (NameStr s) <$> readNameRemainder x
-  where
-    cons :: NamePart -> Name -> Name
-    cons = coerce ((:) @NamePart)
+        [] -> ([], [])
+        x : xs ->
+            let
+              (as, bs) = r xs
+            in
+              case f x of
+                Nothing -> (x : as, bs)
+                Just y  -> (as, y : bs)
 
-    readNameRemainder :: Text -> Maybe Name
-    readNameRemainder =
-        \case
-            (Text.null -> True) -> Just (Name [])
-            (Text.stripPrefix "." -> Just x) -> readName x
-            (Text.stripPrefix "[" -> Just (Text.decimal @Natural -> Right (n, (Text.stripPrefix "]" -> Just x)))) -> cons (NameNat n) <$> readNameRemainder x
-            _ -> Nothing
+contextualize ::
+    NamePart ->
+    Action input remainder (Log err) value ->
+    Action input remainder (Log err) value
 
-(>>>) :: (a -> b) -> (b -> c) -> (a -> c)
+contextualize x = first (contextualizeLog x)
 
-(>>>) =
-    flip (.)
+natListWithIndex :: forall err a. Ord err =>
+    Dump err a ->
+    Grab err [(Natural, a)]
 
-(.=) :: Ord err => Name -> err -> Log err
-
-k .= err =
-    coerce (Map.singleton k (Set.singleton err))
-
-{- | A parser that fails if the form contains any parameters.
-
-This is usually used at the end of an Applicative chain of parsers to assert that every parameter has been consumed by one of the previous parsers.
-
-It may be more convenient to use 'only'. -}
-
-unexpected :: (Ord err, Err_Unexpected err) =>
-    Parser err ()
-
-unexpected =
-    dump \case [] -> pure (); xs -> logYield (foldMap err xs)
-  where
-    err (Param k _v) = (k .= err_unexpected)
-
-{- | @only p@ = @p <* 'unexpected'@ -}
-
-only :: (Ord err, Err_Unexpected err) =>
-    Parser err a -> Parser err a
-
-only =
-    (<* unexpected)
-
-errorYield :: Ord err =>
-    err -> Yield err a
-
-errorYield x =
-    logYield (Name [] .= x)
-
-text :: forall err.
-    ( Ord err
-    , Err_Unexpected err
-    , Err_Missing err
-    , Err_Duplicate err
-    ) =>
-    Parser err Text
-
-text = (only . here) (dump f)
-  where
-    f :: Form -> Yield err Text
-    f = map paramValue >>> unique >>> \case
-        []         -> errorYield err_missing
-        x : []     -> pure x
-        _ : _ : [] -> errorYield err_duplicate
-
-optionalText ::
-    ( Ord err
-    , Err_Unexpected err
-    , Err_Duplicate err
-    ) =>
-    Parser err (Maybe Text)
-
-optionalText =
-    only . here . dump $
-        map paramValue >>> unique >>> \case
-            []         -> pure Nothing
-            x : []     -> pure (Just x)
-            _ : _ : [] -> errorYield err_duplicate
-
-checkbox ::
-    ( Ord err
-    , Err_OnlyAllowed err
-    , Err_Unexpected err
-    ) =>
-    Text ->
-    Parser err Bool
-
-checkbox yes =
-    only . here . dump $
-        map paramValue >>> unique >>> List.partition (== yes) >>> \case
-            ( []     , []    ) -> pure False
-            ( _ : [] , []    ) -> pure True
-            ( _      , _ : _ ) -> errorYield (err_onlyAllowed yes)
-
-natMap :: forall err a. (Ord err) =>
-    Parser err a ->
-    Parser err (Map Natural a)
-
-natMap p = select f g
-  where
-    f :: Param -> Maybe (Natural, Param)
-    g :: [(Natural, Param)] -> Yield err (Map Natural a)
-
-    f param =
-        case (paramName param) of
-            Name (NameNat n : xs) -> Just (n, Param (Name xs) (paramValue param))
-            _ -> Nothing
-
-    g xs =
+natListWithIndex d =
+    X.select selectNats
+    >->
+    X.dump \(xs, ctx) ->
         let
             groups :: [(Natural, [Param])]
             groups = Map.toList $
@@ -186,70 +121,115 @@ natMap p = select f g
                     (Map.unionWith (++))
                     Map.empty
                     (map (\(n, param) -> Map.singleton n [param]) xs)
+
+            forms :: [(Natural, Form)]
+            forms =
+                map
+                    (\(n, xs') -> (n, Form xs' (ctx . coerce (NameNat n :))))
+                    groups
+
+            results :: [(Natural, Product err a)]
+            results = map (\(n, f) -> (n, X.run f (contextualize (NameNat n) d))) forms
         in
-            (_ :: Yield err (Map Natural a))
+            X.log (foldMap (\(_, r) -> X.toLog r) results)
+            *>
+            X.valueMaybe (allJusts (
+                map
+                    (\(n, r) ->
+                        case X.toValueMaybe r of
+                            Nothing -> Nothing
+                            Just v -> Just (n, v)
+                    )
+                    results
+            ))
 
-natList :: (Ord err) =>
-    Parser err a -> Parser err [a]
+allJusts :: [Maybe a] -> Maybe [a]
+allJusts [] = Just []
+allJusts (Nothing : _) = Nothing
+allJusts (Just x : xs) = (x :) <$> allJusts xs
 
-natList =
-    fmap Foldable.toList . natMap
+selectNats :: Form -> (Form, ([(Natural, Param)], Name -> Name))
+selectNats (Form xs ctx) =
+    let
+        (r, s) = partitionMaybe f xs
+    in
+        (Form r ctx, (s, ctx))
+  where
+    f :: Param -> Maybe (Natural, Param)
+    f (Param (Name (NameNat n : ns)) v) = Just (n, Param (Name ns) v)
+    f _ = Nothing
 
-here :: Ord err =>
-    Parser err a -> Parser err a
+natList :: Ord err =>
+    Dump err a ->
+    Grab err [a]
 
-here p =
-    select
-    (\param -> if (paramName param == Name []) then Just param else Nothing)
-    (\params -> parseYield p params)
+natList d =
+    (map snd) <$> natListWithIndex d
 
-contextualizeLog :: forall err.
-    (Name -> Name) -> Log err -> Log err
+text :: forall err.
+    (Ord err, Err_Missing err, Err_Duplicate err) =>
+    Grab err Text
 
-contextualizeLog f =
-    coerce (alterMapKeys @Name @(Set err)) f
+text = here >-> X.dump f
+  where
+    f :: Form -> Product err Text
+    f (Form xs ctx) =
+        case unique (map paramValue xs) of
+            []         -> X.log (ctx (Name []) .= err_missing)
+            x : []     -> X.value x
+            _ : _ : [] -> X.log (ctx (Name []) .= err_duplicate)
 
-alterMapKeys :: forall k a. Ord k =>
-    (k -> k) ->
-    Map k a ->
-    Map k a
+optionalText :: forall err.
+    (Ord err, Err_Duplicate err) =>
+    Grab err (Maybe Text)
 
-alterMapKeys f =
-    Map.fromList . map (first f) . Map.toList
+optionalText = here >-> X.dump f
+  where
+    f :: Form -> Product err (Maybe Text)
+    f (Form xs ctx) =
+        case unique (map paramValue xs) of
+            []         -> X.value Nothing
+            x : []     -> X.value (Just x)
+            _ : _ : [] -> X.log (ctx (Name []) .= err_duplicate)
 
-at :: Ord err =>
-    Text -> (Form -> Yield err a) -> Parser err a
+checkbox :: forall err.
+    (Ord err, Err_OnlyAllowed err) =>
+    Text ->
+    Grab err Bool
 
-at k f =
-    first (contextualizeLog (\(Name xs) -> Name (NameStr k : xs))) $
-      select
-        (\param ->
-            case (paramName param) of
-                Name (NameStr k' : nameRemainder) | k == k' ->
-                    Just (Param (Name nameRemainder) (paramValue param))
-                _ -> Nothing
-        )
-        f
+checkbox yes = here >-> X.dump f
+  where
+    f :: Form -> Product err Bool
+    f (Form xs ctx) =
+        case List.partition (== yes) (unique (map paramValue xs)) of
+            ( []     , []    ) -> X.value False
+            ( _ : [] , []    ) -> X.value True
+            ( _      , _ : _ ) -> X.log (ctx (Name []) .= err_onlyAllowed yes)
+
+only :: forall err a.
+    (Ord err, Err_Unexpected err) =>
+    Grab err a ->
+    Dump err a
+
+only g =
+    X.dump \i ->
+        let
+            r = X.run i g
+        in
+            case X.toRemainder r of
+                Form [] _ -> X.discardRemainder r
+                Form xs ctx ->
+                    X.log (X.toLog r <> foldMap (\(Param n _) -> ctx n .= err_unexpected) xs)
+                    *>
+                    X.valueMaybe (X.toValueMaybe r)
+
+(.=) :: Ord err => Name -> err -> Log err
+
+k .= err =
+    coerce (Map.singleton k (Set.singleton err))
 
 unique :: Ord a =>
     [a] -> [a]
 
 unique =
     Set.toList . Set.fromList
-
-englishSentenceLogText :: Log EnglishSentence -> Text
-
-englishSentenceLogText =
-    Text.unlines . map (uncurry f) . Map.toList . coerce
-  where
-    f :: Name -> Set EnglishSentence -> Text
-    f name errs = Text.concat
-        [ showName name
-        , ": "
-        , Text.unwords
-            (
-              map
-                (coerce @EnglishSentence @Text)
-                (Set.toList errs)
-            )
-        ]

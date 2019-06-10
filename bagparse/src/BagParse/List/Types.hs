@@ -1,16 +1,23 @@
 module BagParse.List.Types
   (
+  -- * The main type
+    X.Action (..)
 
-    Parser
-  , Result
-  , BagParse.Parser.Types.Yield
+  -- * Type aliases
+  , Grab, Dump, Result, Product
 
   ) where
 
-import qualified BagParse.Parser.Types
+import qualified BagParse.Parser.Types as X
 
-type Parser item log a =
-    BagParse.Parser.Types.Parser [item] log a
+type Grab item log value =
+    X.Grab [item] log value
 
-type Result item log a =
-    BagParse.Parser.Types.Result [item] log a
+type Result item log value =
+    X.Result [item] log value
+
+type Dump item log value =
+    X.Dump [item] log value
+
+type Product log value =
+    X.Product log value
