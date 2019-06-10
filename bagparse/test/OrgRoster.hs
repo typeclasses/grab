@@ -127,41 +127,6 @@ isManagerRole = \case False -> OrgRole_Normal; True -> OrgRole_Manager
 isUserAccess :: Bool -> OrgContentAccess
 isUserAccess = \case False -> OrgContentAccess_No; True -> OrgContentAccess_Yes
 
-{-
-main :: IO ()
-main =
-  do
-    let params = map (\(k, v) -> Param (readName k) v) testInput
-    let (log, may :: Maybe Roster) = toLogAndValue (run (Form params id) roster)
-
-    putStrLn "Params:"
-    traverse print params
-
-    putStrLn "\nLog:"
-    Text.putStr (englishSentenceLogText log)
-
-    putStrLn "\nValue:"
-    print may
--}
-
-testInput :: [(Text, Text)]
-testInput =
-  [ ("members.existing[1].name", "Broccoli Rob")
-  , ("members.existing[1].isManager", "yes")
-  , ("members.existing[2].name", "Jingle Jangle")
-  , ("members.existing[2].isUser", "yes")
-  , ("members.existing[4].name", "")
-  , ("members.existing[4].isUser", "yes")
-  , ("members.existing[4].remove", "yes")
-  , ("members.existing[7].name", "Hopscotch")
-  , ("members.existing[7].isUser", "yes")
-  , ("members.new[1].name", "Lunchbox")
-  , ("members.new[2].isManager", "yes")
-  , ("members.new[2].name", "")
-  , ("csrfToken", "bf016ab")
-  , ("org", "13f499c3")
-  ]
-
 tests :: IO Bool
 tests =
   checkParallel $$(discover)
@@ -223,6 +188,110 @@ prop_5 = example
     , ex_log = ["isManager: The only allowed value is `yes`."]
     , ex_value = Nothing
     }
+
+prop_6 :: Property
+prop_6 = example
+  Example
+    { ex_grab = at "org" >-> only org
+    , ex_params = []
+    , ex_remainder = []
+    , ex_log = ["org: Required parameter is missing."]
+    , ex_value = Nothing
+    }
+
+prop_7 :: Property
+prop_7 = example
+  Example
+    { ex_grab = (,) <$> (at "org1" >-> only org)
+                    <*> (at "org2" >-> only org)
+    , ex_params = [("org1", "abc"), ("org3", "xyz"), ("org2", "def")]
+    , ex_remainder = [("org3", "xyz")]
+    , ex_log = []
+    , ex_value = Just (OrgId "abc", OrgId "def")
+    }
+
+prop_8 :: Property
+prop_8 = example
+  Example
+    { ex_grab = (,) <$> (at "org1" >-> only org)
+                    <*> (at "org2" >-> only org)
+    , ex_params = [("org1", "abc"), ("org2", "xyz"), ("org2", "def"), ("org3", "jkl")]
+    , ex_remainder = [("org3", "jkl")]
+    , ex_log = ["org2: Parameter may not appear more than once."]
+    , ex_value = Nothing
+    }
+
+prop_9 :: Property
+prop_9 = example
+  Example
+    { ex_grab = (,) <$> (at "org1" >-> only org)
+                    <*> (at "org2" >-> only org)
+    , ex_params = [("org1", "abc"), ("org3", "jkl")]
+    , ex_remainder = [("org3", "jkl")]
+    , ex_log = ["org2: Required parameter is missing."]
+    , ex_value = Nothing
+    }
+
+prop_10 :: Property
+prop_10 = example
+  Example
+    { ex_grab = (,) <$> (at "org1" >-> only org)
+                    <*> (at "org2" >-> only org)
+    , ex_params = [("org1", "abc"), ("org1", "def"), ("org3", "jkl")]
+    , ex_remainder = [("org3", "jkl")]
+    , ex_log = ["org1: Parameter may not appear more than once.",
+                "org2: Required parameter is missing."]
+    , ex_value = Nothing
+    }
+
+prop_11 :: Property
+prop_11 = example
+  Example
+    { ex_grab = at "org" >-> only org
+    , ex_params = [("org", "abc"), ("org", "abc")]
+    , ex_remainder = []
+    , ex_log = []
+    , ex_value = Just (OrgId "abc")
+    }
+
+prop_12 :: Property
+prop_12 = example
+  Example
+    { ex_grab = roster
+    , ex_params =
+        [ ("members.existing[1].name", "Broccoli Rob")
+        , ("members.existing[1].isManager", "yes")
+        , ("members.existing[2].name", "Jingle Jangle")
+        , ("members.existing[2].isUser", "yes")
+        , ("members.existing[4].name", "")
+        , ("members.existing[4].isUser", "yes")
+        , ("members.existing[4].remove", "yes")
+        , ("members.existing[7].name", "Hopscotch")
+        , ("members.existing[7].isUser", "yes")
+        , ("members.new[1].name", "Lunchbox")
+        , ("members.new[2].isManager", "yes")
+        , ("members.new[2].name", "")
+        , ("csrfToken", "bf016ab")
+        , ("org", "13f499c3")
+        ]
+    , ex_remainder = [("csrfToken", "bf016ab")]
+    , ex_log = []
+    , ex_value = Just Roster
+        { roster_org = OrgId "13f499c3"
+        , roster_members = MemberList
+            { members_existing =
+                Map.singleton (RosterOrdinal 1) (Modification_Update (Member (Just (OrgMemberName "Broccoli Rob")) OrgRole_Manager OrgContentAccess_No)) <>
+                Map.singleton (RosterOrdinal 2) (Modification_Update (Member (Just (OrgMemberName "Jingle Jangle")) OrgRole_Normal OrgContentAccess_Yes)) <>
+                Map.singleton (RosterOrdinal 4) Modification_Delete <>
+                Map.singleton (RosterOrdinal 7) (Modification_Update (Member (Just (OrgMemberName "Hopscotch")) OrgRole_Normal OrgContentAccess_Yes))
+            , members_new =
+                Member (Just (OrgMemberName "Lunchbox")) OrgRole_Manager OrgContentAccess_No :
+                Member (Just (OrgMemberName "")) OrgRole_Normal OrgContentAccess_No :
+                []
+            }
+        }
+    }
+
 
 data Example a =
   Example
