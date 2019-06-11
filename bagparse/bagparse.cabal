@@ -17,8 +17,6 @@ library
   exposed-modules:
       BagParse.Parser.Types
     , BagParse.Parser.Prelude
-    , BagParse.List.Types
-    , BagParse.List.Prelude
     , BagParse.Form.Types
     , BagParse.Form.Errors
     , BagParse.Form.English
