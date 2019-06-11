@@ -99,13 +99,6 @@ partitionMaybe f = fix \r ->
                 Nothing -> (x : as, bs)
                 Just y  -> (as, y : bs)
 
-contextualize ::
-    NamePart ->
-    Action input remainder (Log err) value ->
-    Action input remainder (Log err) value
-
-contextualize x = first (contextualizeLog x)
-
 natListWithIndex :: forall err a. Ord err =>
     Dump err a ->
     Grab err [(Natural, a)]
@@ -131,7 +124,7 @@ natListWithIndex d =
             results :: [(Natural, Product err a)]
             results =
                 map
-                    (\(n, f) -> (n, X.run f (contextualize (NameNat n) d)))
+                    (\(n, f) -> (n, X.run f (X.mapLog (contextualizeLog (NameNat n)) d)))
                     forms
         in
             X.logAndValueMaybe

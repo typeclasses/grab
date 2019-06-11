@@ -1,10 +1,10 @@
 module BagParse.Parser.Types
   (
   -- * The main type
-    Action (..)
+    Grab (..)
 
   -- * Type aliases
-  , Grab, Dump, Result, Product
+  , Grab', Dump, Result, Product
 
   ) where
 
@@ -17,7 +17,7 @@ import Data.Functor.Compose
 
 {- |
 
-An 'Action':
+A 'Grab':
 
   - Consumes some portion (none, part, or all) of its @input@;
   - Returns:
@@ -27,15 +27,15 @@ An 'Action':
 
 Specializations of this type:
 
-  - If the @input@ and @remainder@ types are the same, the action is a 'Grab'.
+  - If the @input@ and @remainder@ types are the same, the action is a 'Grab'' (a simple grab).
   - If the @remainder@ is @()@, the action is a 'Dump'; it dumps out the entire input so there is nothing remaining.
   - If the input is @()@, the action is just a single fixed 'Result', which consists of the @remainder@, @log@, and @Maybe value@.
   - If both the input and remainder are @()@, the output is just the 'Product', which consists of the @log@ and @Maybe value@.
 
 -}
 
-data Action input remainder log value =
-  Action
+data Grab input remainder log value =
+  Grab
     (input -> (remainder, log, Maybe value))
 
 
@@ -53,43 +53,43 @@ Type parameters:
 
 -}
 
-type Grab bag log value = Action bag bag log value
+type Grab' bag log value = Grab bag bag log value
 
 {- | The result of performing a 'Grab'. -}
 
-type Result remainder log value = Action () remainder log value
+type Result remainder log value = Grab () remainder log value
 
 {- | A 'Dump' is a 'Grab' the consumes the entire bag. -}
 
-type Dump input log value = Action input () log value
+type Dump input log value = Grab input () log value
 
 {- | The outcome produced by performing a 'Dump'. -}
 
-type Product log value = Action () () log value
+type Product log value = Grab () () log value
 
 
 --- Functor ---
 
-deriving stock instance Functor (Action input remainder log)
+deriving stock instance Functor (Grab input remainder log)
 
 
 --- Applicative functor ---
 
 instance (input ~ remainder, Monoid log) =>
-  Applicative (Action input remainder log) where
-    pure = actionPure
-    (<*>) = actionAp
+  Applicative (Grab input remainder log) where
+    pure = grabPure
+    (<*>) = grabAp
 
-actionPure :: Monoid log => a -> Action bag bag log a
-actionPure a = Action \bag -> (bag, mempty, Just a)
+grabPure :: Monoid log => a -> Grab bag bag log a
+grabPure a = Grab \bag -> (bag, mempty, Just a)
 
-actionAp :: Monoid log =>
-    Action bag bag log (x -> a) ->
-    Action bag bag log x ->
-    Action bag bag log a
+grabAp :: Monoid log =>
+    Grab bag bag log (x -> a) ->
+    Grab bag bag log x ->
+    Grab bag bag log a
 
-actionAp (Action pf) (Action px) =
-    Action \bag ->
+grabAp (Grab pf) (Grab px) =
+    Grab \bag ->
         let
             (bag',  log1, f) = pf bag
             (bag'', log2, x) = px bag'
@@ -99,17 +99,17 @@ actionAp (Action pf) (Action px) =
 
 --- Bifunctor ---
 
-instance Bifunctor (Action input remainder) where
-    bimap = bimapAction
+instance Bifunctor (Grab input remainder) where
+    bimap = bimapGrab
 
-bimapAction :: forall input remainder log log' a a'.
+bimapGrab :: forall input remainder log log' a a'.
     (log -> log') ->
     (a -> a') ->
-    Action input remainder log  a ->
-    Action input remainder log' a'
+    Grab input remainder log  a ->
+    Grab input remainder log' a'
 
-bimapAction f g (Action x) =
-    Action \bag ->
+bimapGrab f g (Grab x) =
+    Grab \bag ->
         let
             (bag', log, a) = x bag
         in

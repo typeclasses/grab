@@ -1,11 +1,5 @@
 module BagParse.Form.Types
-  (
-  -- * The main type
-    X.Action (..)
-
-  -- * Type aliases
-  , Grab, Dump, Result, Product
-
+  ( Grab, Dump, Result, Product
   ) where
 
 import qualified BagParse.Parser.Types as X
@@ -20,7 +14,7 @@ import Data.String
 import Numeric.Natural (Natural)
 
 type Grab err a =
-    X.Grab Form (Log err) a
+    X.Grab' Form (Log err) a
 
 type Result err a =
     X.Result Form (Log err) a
