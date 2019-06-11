@@ -12,19 +12,16 @@ module Control.Grab
     Grab (..)
 
   -- * Type aliases
-  , Grab', Dump, Result, Product
+  , Simple, Dump, Result, Extract
 
-  -- * Constants
-  , nil
+  -- * Creating grabs
+  , success, failure, extract, select, dump
 
-  -- * Entering the Action type
-  , log, value, logAndValueMaybe, valueMaybe, select, dump
+  -- * Modifying grabs
+  , discardResidue, run, (>->), mapLog
 
-  -- * Within the Action type
-  , discardRemainder, run, (>->), mapLog
-
-  -- * Exiting the Action type
-  , toValueMaybe, toLogOrValue, toLog, toLogAndValue, toRemainder
+  -- * Deconstructing results
+  , residue, log, desideratum
 
   ) where
 
@@ -45,64 +42,110 @@ import Prelude ()
 
 A 'Grab':
 
-  - Consumes some portion (none, part, or all) of its @input@;
-  - Returns:
-    - The @remainder@ of the unconsumed input;
-    - Some monoidal @log@ e.g. a list of error messages;
-    - Some @value@ produced from the consumed input.
+  1. Consumes some portion (none, part, or all) of its input
+     __@bag@__;
+
+  2. Returns a 'Result':
+
+      * A __@residue@__ consisting of the unconsumed input;
+
+      * Some monoidal __@log@__ e.g. a list of error messages;
+
+      * Some __@desideratum@__ (the object of desire) produced from
+        the consumed input, or @Nothing@ if the grab failed.
 
 Specializations of this type:
 
-  - If the @input@ and @remainder@ types are the same, the action is a 'Grab'' (a simple grab).
-  - If the @remainder@ is @()@, the action is a 'Dump'; it dumps out the entire input so there is nothing remaining.
-  - If the input is @()@, the action is just a single fixed 'Result', which consists of the @remainder@, @log@, and @Maybe value@.
-  - If both the input and remainder are @()@, the output is just the 'Product', which consists of the @log@ and @Maybe value@.
+  * If the bag and residue types are the same, the grab
+    is a __'Simple'__ grab.
+
+  * If the residue is @()@, the grab is a __'Dump'__; it
+    dumps out the entire bag so there is nothing remaining.
+
+  * If the bag is @()@, the grab is just a single fixed
+    __'Result'__, which consists of the residue, log, and
+    maybe the desideratum.
+
+  * If both the bag and residue are @()@, the grab is
+    just the __'Extract'__, which consists of the log and
+    maybe the desideratum.
 
 -}
 
-data Grab input remainder log value =
+newtype Grab bag residue log desideratum =
   Grab
-    (input -> (remainder, log, Maybe value))
+    (bag -> (residue, log, Maybe desideratum))
 
 
 --- Type aliases ---
 
 {- |
 
-A 'Grab' consumes some portion (none, part, or all) of its input, and returns a 'Result' which contains the remaining unconsumed input and whatever was yielded from the bag.
+A 'Simple' grab:
 
-Type parameters:
+  1. Consumes some portion (none, part, or all) of its input
+     __@bag@__;
 
-  - @bag@ - The grab's input (typically some collection like a list, set, or map)
-  - @log@ - Any warnings or errors (typically a 'Monoid')
-  - @a@ - A value that the grab produces when it successfully grabs from the bag.
+  2. Returns a 'Result':
+
+      * A modified __@bag@__ representing the unconsumed
+        portion of the input;
+
+      * Some monoidal __@log@__ e.g. a list of error messages;
+
+      * Some __@desideratum@__ (the object of desire) produced from
+        the consumed input, or @Nothing@ if the grab failed.
 
 -}
 
-type Grab' bag log value = Grab bag bag log value
+type Simple bag log desideratum = Grab bag bag log desideratum
 
-{- | The result of performing a 'Grab'. -}
+{- | A 'Dump':
 
-type Result remainder log value = Grab () remainder log value
+  1. Consumes all of its input __@bag@__;
 
-{- | A 'Dump' is a 'Grab' the consumes the entire bag. -}
+  2. Returns a 'Extract':
 
-type Dump input log value = Grab input () log value
+      * Some monoidal __@log@__ e.g. a list of error messages;
 
-{- | The outcome produced by performing a 'Dump'. -}
+      * Some __@desideratum@__ (the object of desire) produced from
+        the consumed input, or @Nothing@ if the grab failed.
+-}
 
-type Product log value = Grab () () log value
+type Dump bag log desideratum = Grab bag () log desideratum
+
+{- | The result of performing a 'Grab'. Consists of:
+
+  * A __@residue@__ consisting of the unconsumed input;
+
+  * Some monoidal __@log@__ e.g. a list of error messages;
+
+  * Some __@desideratum@__ (the object of desire) produced from
+    the consumed input, or @Nothing@ if the grab failed.
+-}
+
+type Result residue log desideratum = Grab () residue log desideratum
+
+{- | What is produced by performing a 'Dump'. Consists of:
+
+  * Some monoidal __@log@__ e.g. a list of error messages;
+
+  * Some __@desideratum@__ (the object of desire) produced from
+    the consumed input, or @Nothing@ if the grab failed.
+-}
+
+type Extract log desideratum = Grab () () log desideratum
 
 
 --- Functor ---
 
-deriving stock instance Functor (Grab input remainder log)
+deriving stock instance Functor (Grab bag residue log)
 
 
 --- Applicative functor ---
 
-instance (input ~ remainder, Monoid log) =>
-  Applicative (Grab input remainder log) where
+instance (bag ~ residue, Monoid log) =>
+  Applicative (Grab bag residue log) where
     pure = grabPure
     (<*>) = grabAp
 
@@ -125,14 +168,14 @@ grabAp (Grab pf) (Grab px) =
 
 --- Bifunctor ---
 
-instance Bifunctor (Grab input remainder) where
+instance Bifunctor (Grab bag residue) where
     bimap = bimapGrab
 
-bimapGrab :: forall input remainder log log' a a'.
+bimapGrab :: forall bag residue log log' a a'.
     (log -> log') ->
     (a -> a') ->
-    Grab input remainder log  a ->
-    Grab input remainder log' a'
+    Grab bag residue log  a ->
+    Grab bag residue log' a'
 
 bimapGrab f g (Grab x) =
     Grab \bag ->
@@ -142,40 +185,35 @@ bimapGrab f g (Grab x) =
             (bag', f log, fmap @Maybe g a)
 
 
---- Entering the Action type ---
+--- Creating grabs ---
 
-nil :: Monoid log => Grab' bag log value
-nil = Grab \bag -> (bag, mempty, Nothing)
+success :: Monoid log => desideratum -> Extract log desideratum
+success x = extract mempty (Just x)
 
-log :: log -> Product log value
-log x = Grab \() -> ((), x, Nothing)
+failure :: log -> Extract log desideratum
+failure x = extract x (Nothing)
 
-value :: Monoid log => value -> Product log value
-value x = valueMaybe (Just x)
+extract :: log -> Maybe desideratum -> Extract log desideratum
+extract x y = Grab \() -> ((), x, y)
 
-valueMaybe :: Monoid log => Maybe value -> Product log value
-valueMaybe x = Grab \() -> ((), mempty, x)
-
-logAndValueMaybe :: log -> Maybe value -> Product log value
-logAndValueMaybe x y = Grab \() -> ((), x, y)
-
-select :: Monoid log => (input -> (remainder, selection)) ->
-                        Grab input remainder log selection
+select :: Monoid log => (bag -> (residue, selection)) ->
+                        Grab bag residue log selection
 select f = Grab \i -> let (r, s) = f i
                       in  (r, mempty, Just s)
 
-dump :: (input -> Product log value) -> Dump input log value
+dump :: (bag -> Extract log desideratum) -> Dump bag log desideratum
 dump f = Grab \i -> let p = f i
-                    in  ((), toLog p, toValueMaybe p)
+                    in  ((), log p, desideratum p)
 
 
---- Within the Action type ---
+--- Modifying grabs ---
 
 (>->) :: Semigroup log
-    => Grab input remainder log x
-    -> Grab x r log value
-        -- ^ The remainder of this 'Grab' will be ignored, so it usually ought to be a 'Dump'.
-    -> Grab input remainder log value
+    => Grab bag residue log x
+    -> Grab x r log desideratum
+        -- ^ The residue of this 'Grab' will be ignored,
+        --   so it usually ought to be a 'Dump'.
+    -> Grab bag residue log desideratum
 
 (>->) (Grab f) (Grab g) =
     Grab \i ->
@@ -185,45 +223,38 @@ dump f = Grab \i -> let p = f i
                 Just a -> let (_, y', z') = g a
                           in  (x, y <> y', z')
 
-run :: input -> Grab input remainder log value ->
-                Result remainder log value
+run :: bag -> Grab bag residue log desideratum ->
+              Result residue log desideratum
 run x (Grab f) = Grab \() -> f x
 
-discardRemainder :: Grab input remainder log value ->
-                    Dump input log value
-discardRemainder (Grab f) =
+discardResidue :: Grab bag residue log desideratum ->
+                  Dump bag log desideratum
+discardResidue (Grab f) =
     Grab \bag -> let (_, y, z) = f bag
                  in  ((), y, z)
 
-mapLog :: (log -> log') -> Grab input remainder log value ->
-                           Grab input remainder log' value
+mapLog :: (log -> log') -> Grab bag residue log  desideratum ->
+                           Grab bag residue log' desideratum
 mapLog f = first f
 
 
---- Exiting the Action type ---
+--- Deconstructing results ---
 
-toValueMaybe :: Result remainder log value -> Maybe value
-toValueMaybe (Grab f) =
-    let (_x, _y, z) = f ()
-    in  z
+{- | The desired object, if one was successfully extracted from the bag.
 
-toLogOrValue :: Result remainder log value -> Either log value
-toLogOrValue (Grab f) =
-    let (_x, y, z) = f ()
-    in  case z of Nothing -> Left y
-                  Just v -> Right v
+This function can be used with both 'Result' and 'Extract'. -}
 
-toLog :: Result remainder log value -> log
-toLog (Grab f) =
-    let (_x, y, _z) = f ()
-    in  y
+desideratum :: Result residue log desideratum -> Maybe desideratum
+desideratum (Grab f) = let (_, _, x) = f () in x
 
-toLogAndValue :: Result remainder log value -> (log, Maybe value)
-toLogAndValue (Grab f) =
-    let (_x, y, z) = f ()
-    in  (y, z)
+{- | Any extra information produced during the grab, such as error messages.
 
-toRemainder :: Result remainder log value -> remainder
-toRemainder (Grab f) =
-    let (x, _y, _z) = f ()
-    in  x
+This function can be used with both 'Result' and 'Extract'. -}
+
+log :: Result residue log desideratum -> log
+log (Grab f) = let (_, x, _) = f () in x
+
+{- | The portion of the bag that was not consumed by the grab. -}
+
+residue :: Result residue log desideratum -> residue
+residue (Grab f) = let (x, _, _) = f () in x

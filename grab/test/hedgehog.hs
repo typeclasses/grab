@@ -5,7 +5,7 @@
 
 #-}
 
-import qualified Control.Grab as G
+import qualified Control.Grab as Grab
 
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
@@ -32,21 +32,29 @@ prop_1 :: Property
 prop_1 = withTests 1 $ property
   do
     let
-        r = G.log "a" *> G.log "b" *> G.log "c" :: G.Product String Integer
-    G.toLog r === "abc"
-    G.toValueMaybe r === Nothing
+        r = Grab.failure "a" *>
+            Grab.failure "b" *>
+            Grab.failure "c"
+            :: Grab.Extract String Integer
+
+    Grab.log r === "abc"
+    Grab.desideratum r === Nothing
 
 prop_2 :: Property
 prop_2 = withTests 1 $ property
   do
     let
-        r = G.log "a" *> G.log "b" *> G.value 4
-    G.toLog r === "ab"
-    G.toValueMaybe r === Nothing
+        r = Grab.failure "a" *>
+            Grab.failure "b" *>
+            Grab.success 4
+
+    Grab.log r === "ab"
+    Grab.desideratum r === Nothing
 
 prop_3 :: Property
 prop_3 = withTests 1 $ property
   do
     let
-        r = G.value 4 :: G.Product String Integer
-    G.toValueMaybe r === Just 4
+        r = Grab.success 4 :: Grab.Extract String Integer
+
+    Grab.desideratum r === Just 4

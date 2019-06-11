@@ -18,9 +18,9 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 
 type Error = Grab.EnglishSentence
-type Grab value = Grab.Grab Error value
+type Grab desideratum = Grab.Grab Error desideratum
 type Log = Grab.Log Error
-type Dump value = Grab.Dump Error value
+type Dump desideratum = Grab.Dump Error desideratum
 
 roster :: Grab Roster
 roster =

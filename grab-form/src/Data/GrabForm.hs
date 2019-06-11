@@ -249,7 +249,7 @@ englishSentenceLogText =
 --- Grab types ---
 
 type Grab err a =
-    Grab.Grab' Form (Log err) a
+    Grab.Simple Form (Log err) a
 
 type Dump err a =
     Grab.Dump Form (Log err) a
@@ -257,8 +257,8 @@ type Dump err a =
 type Result err a =
     Grab.Result Form (Log err) a
 
-type Product err a =
-    Grab.Product (Log err) a
+type Extract err a =
+    Grab.Extract (Log err) a
 
 
 --- Parameter name selection ---
@@ -299,8 +299,8 @@ here =
 
 (>->) :: Ord err =>
     Grab err Form ->
-    Dump err value ->
-    Grab err value
+    Dump err desideratum ->
+    Grab err desideratum
 
 (>->) = (Grab.>->)
 
@@ -313,12 +313,12 @@ text :: forall err.
 
 text = here >-> Grab.dump f
   where
-    f :: Form -> Product err Text
+    f :: Form -> Extract err Text
     f (Form xs ctx) =
         case unique (map paramValue xs) of
-            []         -> Grab.log (ctx (Name []) .= err_missing)
-            x : []     -> Grab.value x
-            _ : _ : [] -> Grab.log (ctx (Name []) .= err_duplicate)
+            []         -> Grab.failure (ctx (Name []) .= err_missing)
+            x : []     -> Grab.success x
+            _ : _ : [] -> Grab.failure (ctx (Name []) .= err_duplicate)
 
 optionalText :: forall err.
     (Ord err, Err_Duplicate err) =>
@@ -326,12 +326,12 @@ optionalText :: forall err.
 
 optionalText = here >-> Grab.dump f
   where
-    f :: Form -> Product err (Maybe Text)
+    f :: Form -> Extract err (Maybe Text)
     f (Form xs ctx) =
         case unique (map paramValue xs) of
-            []         -> Grab.value Nothing
-            x : []     -> Grab.value (Just x)
-            _ : _ : [] -> Grab.log (ctx (Name []) .= err_duplicate)
+            []         -> Grab.success Nothing
+            x : []     -> Grab.success (Just x)
+            _ : _ : [] -> Grab.failure (ctx (Name []) .= err_duplicate)
 
 checkbox :: forall err.
     (Ord err, Err_OnlyAllowed err) =>
@@ -340,12 +340,12 @@ checkbox :: forall err.
 
 checkbox yes = here >-> Grab.dump f
   where
-    f :: Form -> Product err Bool
+    f :: Form -> Extract err Bool
     f (Form xs ctx) =
         case List.partition (== yes) (unique (map paramValue xs)) of
-            ( []     , []    ) -> Grab.value False
-            ( _ : [] , []    ) -> Grab.value True
-            ( _      , _ : _ ) -> Grab.log (ctx (Name []) .= err_onlyAllowed yes)
+            ( []     , []    ) -> Grab.success False
+            ( _ : [] , []    ) -> Grab.success True
+            ( _      , _ : _ ) -> Grab.failure (ctx (Name []) .= err_onlyAllowed yes)
 
 
 --- Internal ---
@@ -386,16 +386,16 @@ only g =
         let
             r = Grab.run i g
         in
-            case Grab.toRemainder r of
-                Form [] _ -> Grab.discardRemainder r
+            case Grab.residue r of
+                Form [] _ -> Grab.discardResidue r
                 Form xs ctx ->
-                    Grab.logAndValueMaybe
-                        (Grab.toLog r
+                    Grab.extract
+                        (Grab.log r
                             <> foldMap (\(Param n _) -> ctx n .= err_unexpected) xs)
-                        (Grab.toValueMaybe r)
+                        (Grab.desideratum r)
 
 etAlia :: Grab err a -> Dump err a
-etAlia = Grab.discardRemainder
+etAlia = Grab.discardResidue
 
 
 --- Lists ---
@@ -423,15 +423,15 @@ natListWithIndex =
                     (\(n, xs') -> (n, Form xs' (ctx . coerce (NameNat n :))))
                     groups
 
-            results :: [(Natural, Product err a)]
+            results :: [(Natural, Extract err a)]
             results = map (\(n, f) -> (n, Grab.run f d)) forms
         in
-            Grab.logAndValueMaybe
-                (foldMap (\(_, r) -> Grab.toLog r) results)
+            Grab.extract
+                (foldMap (\(_, r) -> Grab.log r) results)
                 (allJusts (
                     map
                         (\(n, r) ->
-                            case Grab.toValueMaybe r of
+                            case Grab.desideratum r of
                                 Nothing -> Nothing
                                 Just v -> Just (n, v)
                         )
@@ -464,9 +464,9 @@ grabParams :: Grab err a -> [Param] -> ([Param], Log err, Maybe a)
 grabParams g xs =
     let
         r = Grab.run (Form xs id) g
-        rem = Grab.toRemainder r
+        rem = Grab.residue r
     in
-        (f (Grab.toRemainder r), Grab.toLog r, Grab.toValueMaybe r)
+        (f (Grab.residue r), Grab.log r, Grab.desideratum r)
 
   where
     f x = map (\(Param n v) -> Param (formContext x n) v) (formParams x)
@@ -476,4 +476,4 @@ dumpParams d xs =
     let
         r = Grab.run (Form xs id) d
     in
-        (Grab.toLog r, Grab.toValueMaybe r)
+        (Grab.log r, Grab.desideratum r)
