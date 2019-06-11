@@ -1,6 +1,6 @@
 cabal-version: 2.4
 
-name: grab
+name: grab-form
 version: 0
 
 library
@@ -10,10 +10,18 @@ library
 
   build-depends:
       base
+    , containers
+    , grab
+    , text
 
   exposed-modules:
-      BagParse.Parser.Types
-    , BagParse.Parser.Prelude
+      BagParse.Form.Types
+    , BagParse.Form.Errors
+    , BagParse.Form.English
+    , BagParse.Form.Input
+    , BagParse.Form.Log
+    , BagParse.Form.Name
+    , BagParse.Form.Prelude
 
   default-extensions:
       BlockArguments
@@ -33,16 +41,16 @@ library
     , UnicodeSyntax
     , ViewPatterns
 
-test-suite core
+test-suite OrgRoster
   type: exitcode-stdio-1.0
   default-language: Haskell2010
   hs-source-dirs: test
-  main-is: core.hs
+  main-is: OrgRoster.hs
 
   build-depends:
       base
     , containers
-    , grab
+    , grab-form
     , hedgehog
     , text
 

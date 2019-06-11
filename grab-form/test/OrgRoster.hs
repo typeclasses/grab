@@ -1,7 +1,7 @@
 import qualified BagParse.Form.Types as X
 import qualified BagParse.Form.Name as X
 import qualified BagParse.Form.Log as X
-import qualified BagParse.Parser.Prelude as X
+import qualified BagParse.Form.Prelude as X
 
 import BagParse.Form.Input (Form (..), Param (..))
 import BagParse.Form.Prelude
