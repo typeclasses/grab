@@ -1,3 +1,11 @@
+{-# LANGUAGE
+
+    BlockArguments, DerivingStrategies, GeneralizedNewtypeDeriving,
+    LambdaCase, OverloadedStrings, ScopedTypeVariables,
+    StandaloneDeriving, TypeApplications, ViewPatterns
+
+#-}
+
 module Data.GrabForm
   (
   -- * Form

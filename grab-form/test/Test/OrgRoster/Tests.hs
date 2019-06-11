@@ -1,3 +1,10 @@
+{-# LANGUAGE
+
+    BlockArguments, LambdaCase, OverloadedStrings,
+    ScopedTypeVariables, TemplateHaskell, ViewPatterns
+
+#-}
+
 module Test.OrgRoster.Tests where
 
 import Test.OrgRoster.Concepts

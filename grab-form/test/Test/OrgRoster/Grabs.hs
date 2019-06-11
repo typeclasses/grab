@@ -1,3 +1,10 @@
+{-# LANGUAGE
+
+    ApplicativeDo, BlockArguments, LambdaCase,
+    OverloadedStrings, ScopedTypeVariables, ViewPatterns
+
+#-}
+
 module Test.OrgRoster.Grabs where
 
 import Test.OrgRoster.Concepts

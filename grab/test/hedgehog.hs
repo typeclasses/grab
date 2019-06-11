@@ -1,3 +1,10 @@
+{-# LANGUAGE
+
+    BlockArguments, LambdaCase, OverloadedStrings,
+    ScopedTypeVariables, TemplateHaskell, ViewPatterns
+
+#-}
+
 import qualified Control.Grab as G
 
 import           Hedgehog

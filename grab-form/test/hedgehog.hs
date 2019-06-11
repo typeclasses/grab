@@ -2,8 +2,6 @@ import qualified Test.OrgRoster.Tests
 
 import Control.Monad (when)
 
-import Numeric.Natural
-
 import System.IO (hSetEncoding, stdout, stderr, utf8)
 import System.Exit (exitFailure)
 

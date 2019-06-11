@@ -1,3 +1,11 @@
+{-# LANGUAGE
+
+    BlockArguments, DeriveFunctor, DerivingStrategies,
+    GADTs, LambdaCase, ScopedTypeVariables,
+    StandaloneDeriving, TypeApplications
+
+#-}
+
 module Control.Grab
   (
   -- * The main type
