@@ -27,8 +27,8 @@ import BagParse.Form.Log
 import BagParse.Form.Types
 import BagParse.Form.Name
 
-import qualified BagParse.Parser.Prelude as X
-import BagParse.Parser.Prelude ((>->))
+import qualified Control.Grab as X
+import Control.Grab ((>->))
 
 import Data.Bifunctor
 import Data.Coerce

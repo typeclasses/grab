@@ -1,5 +1,4 @@
-import qualified BagParse.Parser.Prelude as X
-import BagParse.Parser.Types
+import qualified Control.Grab as G
 
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
@@ -26,21 +25,21 @@ prop_1 :: Property
 prop_1 = withTests 1 $ property
   do
     let
-        r = X.log "a" *> X.log "b" *> X.log "c" :: Product String Integer
-    X.toLog r === "abc"
-    X.toValueMaybe r === Nothing
+        r = G.log "a" *> G.log "b" *> G.log "c" :: G.Product String Integer
+    G.toLog r === "abc"
+    G.toValueMaybe r === Nothing
 
 prop_2 :: Property
 prop_2 = withTests 1 $ property
   do
     let
-        r = X.log "a" *> X.log "b" *> X.value 4
-    X.toLog r === "ab"
-    X.toValueMaybe r === Nothing
+        r = G.log "a" *> G.log "b" *> G.value 4
+    G.toLog r === "ab"
+    G.toValueMaybe r === Nothing
 
 prop_3 :: Property
 prop_3 = withTests 1 $ property
   do
     let
-        r = X.value 4 :: Product String Integer
-    X.toValueMaybe r === Just 4
+        r = G.value 4 :: G.Product String Integer
+    G.toValueMaybe r === Just 4

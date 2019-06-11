@@ -2,7 +2,7 @@ module BagParse.Form.Types
   ( Grab, Dump, Result, Product
   ) where
 
-import qualified BagParse.Parser.Types as X
+import qualified Control.Grab as X
 
 import BagParse.Form.Input
 import BagParse.Form.Log
