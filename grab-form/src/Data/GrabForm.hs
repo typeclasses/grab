@@ -32,7 +32,7 @@ module Data.GrabForm
   , Grab, Dump
 
   -- * Parameter name selection
-  , at, here, (>->)
+  , at, here, (/)
 
   -- * Simple form fields
   , text, optionalText, checkbox
@@ -47,6 +47,8 @@ module Data.GrabForm
   , grabParams, dumpParams
 
   ) where
+
+import Prelude hiding ((/))
 
 import Data.Coerce (coerce)
 import Data.Bifunctor (Bifunctor (..))
@@ -297,12 +299,12 @@ here =
             Name [] -> Just p
             _ -> Nothing
 
-(>->) :: Ord err =>
+(/) :: Ord err =>
     Grab err Form ->
     Dump err desideratum ->
     Grab err desideratum
 
-(>->) = (Grab.>->)
+(/) = (Grab./)
 
 
 --- Simple form fields ---
@@ -311,7 +313,7 @@ text :: forall err.
     (Ord err, Err_Missing err, Err_Duplicate err) =>
     Grab err Text
 
-text = here >-> Grab.dump f
+text = here / Grab.dump f
   where
     f :: Form -> Extract err Text
     f (Form xs ctx) =
@@ -324,7 +326,7 @@ optionalText :: forall err.
     (Ord err, Err_Duplicate err) =>
     Grab err (Maybe Text)
 
-optionalText = here >-> Grab.dump f
+optionalText = here / Grab.dump f
   where
     f :: Form -> Extract err (Maybe Text)
     f (Form xs ctx) =
@@ -338,7 +340,7 @@ checkbox :: forall err.
     Text ->
     Grab err Bool
 
-checkbox yes = here >-> Grab.dump f
+checkbox yes = here / Grab.dump f
   where
     f :: Form -> Extract err Bool
     f (Form xs ctx) =
@@ -407,7 +409,7 @@ natListWithIndex :: forall err a. Ord err =>
 natListWithIndex =
   \d ->
     Grab.partition selectNats
-    Grab.>->
+    Grab./
     Grab.dump \(xs, ctx) ->
         let
             groups :: [(Natural, [Param])]

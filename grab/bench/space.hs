@@ -1,7 +1,9 @@
 {-# LANGUAGE ApplicativeDo, BlockArguments #-}
 
+import Prelude hiding ((/))
+
 import qualified Control.Grab as Grab
-import Control.Grab ((>->))
+import Control.Grab ((/))
 
 import qualified Data.List as List
 import qualified Data.Foldable as Foldable
@@ -22,11 +24,9 @@ g :: Grab.Simple [Integer] (Sum Integer) (Integer, Integer)
 g =
   do
     _ <- Foldable.for_ primes \n ->
-         (
-            f (\x -> mod x n == 0)
-            >->
-            Grab.dump (\xs -> Grab.warning (Sum $! sum xs))
-         )
+           ( f (\x -> mod x n == 0)
+           / Grab.dump (\xs -> Grab.warning (Sum $! sum xs))
+           )
 
     evenSum  <- sum <$> f even
     oddSum   <- sum <$> f odd

@@ -17,7 +17,7 @@ module Control.Grab
 
   -- * Creation
   -- ** Making grabs
-  , partition, (>->)
+  , partition, (/)
   -- ** Making dumps
   , dump, discardResidue
   -- ** Making extracts
@@ -255,9 +255,9 @@ dump f =
         in
             ((), log p, desideratum p)
 
--- | @a >-> b@ is a pipeline of two grabs, using the output of /a/
+-- | @a / b@ is a pipeline of two grabs, using the output of /a/
 -- as the input to /b/.
-(>->) :: Semigroup log
+(/) :: Semigroup log
     => Grab bag residue log x
         -- ^ The first grab /a/, whose desideratum @x@ will be
         --   passed as input to the second grab /b/.
@@ -268,7 +268,7 @@ dump f =
         -- ^ A grab whose result is the residue of /a/, the combined
         --   logs of both /a/ and /b/, and the desideratum of /b/.
 
-(>->) (Grab f) (Grab g) =
+(/) (Grab f) (Grab g) =
     Grab \i ->
         let
             (x, y, z) = f i

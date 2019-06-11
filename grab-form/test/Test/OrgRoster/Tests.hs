@@ -7,11 +7,13 @@
 
 module Test.OrgRoster.Tests where
 
+import Prelude hiding ((/))
+
 import Test.OrgRoster.Concepts
 import Test.OrgRoster.Grabs
 
 import qualified Data.GrabForm as Grab
-import Data.GrabForm (only, natList, readName, Param (..), (>->), at, checkbox, text, optionalText, natListWithIndex)
+import Data.GrabForm (only, natList, readName, Param (..), (/), at, checkbox, text, optionalText, natListWithIndex)
 
 import Data.Bifunctor
 import Data.Coerce
@@ -34,7 +36,7 @@ group = $$(discover)
 prop_1 :: Property
 prop_1 = example
   Example
-    { ex_grab = at "org" >-> only org
+    { ex_grab = at "org" / only org
     , ex_params = [("org", "13f499c3")]
     , ex_residue = []
     , ex_log = []
@@ -44,7 +46,7 @@ prop_1 = example
 prop_2 :: Property
 prop_2 = example
   Example
-    { ex_grab = at "members" >-> only memberList
+    { ex_grab = at "members" / only memberList
     , ex_params = [("org", "13f499c3")]
     , ex_residue = [("org", "13f499c3")]
     , ex_log = []
@@ -84,7 +86,7 @@ prop_5 = example
 prop_6 :: Property
 prop_6 = example
   Example
-    { ex_grab = at "org" >-> only org
+    { ex_grab = at "org" / only org
     , ex_params = []
     , ex_residue = []
     , ex_log = ["org: Required parameter is missing."]
@@ -94,8 +96,8 @@ prop_6 = example
 prop_7 :: Property
 prop_7 = example
   Example
-    { ex_grab = (,) <$> (at "org1" >-> only org)
-                    <*> (at "org2" >-> only org)
+    { ex_grab = (,) <$> (at "org1" / only org)
+                    <*> (at "org2" / only org)
     , ex_params = [("org1", "abc"), ("org3", "xyz"), ("org2", "def")]
     , ex_residue = [("org3", "xyz")]
     , ex_log = []
@@ -105,8 +107,8 @@ prop_7 = example
 prop_8 :: Property
 prop_8 = example
   Example
-    { ex_grab = (,) <$> (at "org1" >-> only org)
-                    <*> (at "org2" >-> only org)
+    { ex_grab = (,) <$> (at "org1" / only org)
+                    <*> (at "org2" / only org)
     , ex_params = [("org1", "abc"), ("org2", "xyz"), ("org2", "def"), ("org3", "jkl")]
     , ex_residue = [("org3", "jkl")]
     , ex_log = ["org2: Parameter may not appear more than once."]
@@ -116,8 +118,8 @@ prop_8 = example
 prop_9 :: Property
 prop_9 = example
   Example
-    { ex_grab = (,) <$> (at "org1" >-> only org)
-                    <*> (at "org2" >-> only org)
+    { ex_grab = (,) <$> (at "org1" / only org)
+                    <*> (at "org2" / only org)
     , ex_params = [("org1", "abc"), ("org3", "jkl")]
     , ex_residue = [("org3", "jkl")]
     , ex_log = ["org2: Required parameter is missing."]
@@ -127,8 +129,8 @@ prop_9 = example
 prop_10 :: Property
 prop_10 = example
   Example
-    { ex_grab = (,) <$> (at "org1" >-> only org)
-                    <*> (at "org2" >-> only org)
+    { ex_grab = (,) <$> (at "org1" / only org)
+                    <*> (at "org2" / only org)
     , ex_params = [("org1", "abc"), ("org1", "def"), ("org3", "jkl")]
     , ex_residue = [("org3", "jkl")]
     , ex_log = ["org1: Parameter may not appear more than once.",
@@ -139,7 +141,7 @@ prop_10 = example
 prop_11 :: Property
 prop_11 = example
   Example
-    { ex_grab = at "org" >-> only org
+    { ex_grab = at "org" / only org
     , ex_params = [("org", "abc"), ("org", "abc")]
     , ex_residue = []
     , ex_log = []
@@ -187,7 +189,7 @@ prop_12 = example
 prop_13 :: Property
 prop_13 = example
   Example
-    { ex_grab = at "new" >-> only (natList (only member))
+    { ex_grab = at "new" / only (natList (only member))
     , ex_params =
         [ ("new[1].name", "Lunchbox")
         , ("new[2].isManager", "yes")
