@@ -285,13 +285,29 @@ prop_12 = example
                 Map.singleton (RosterOrdinal 4) Modification_Delete <>
                 Map.singleton (RosterOrdinal 7) (Modification_Update (Member (Just (OrgMemberName "Hopscotch")) OrgRole_Normal OrgContentAccess_Yes))
             , members_new =
-                Member (Just (OrgMemberName "Lunchbox")) OrgRole_Manager OrgContentAccess_No :
-                Member (Just (OrgMemberName "")) OrgRole_Normal OrgContentAccess_No :
+                Member (Just (OrgMemberName "Lunchbox")) OrgRole_Normal OrgContentAccess_No :
+                Member (Just (OrgMemberName "")) OrgRole_Manager OrgContentAccess_No :
                 []
             }
         }
     }
 
+prop_13 :: Property
+prop_13 = example
+  Example
+    { ex_grab = at "new" >-> only (natList (only member))
+    , ex_params =
+        [ ("new[1].name", "Lunchbox")
+        , ("new[2].isManager", "yes")
+        , ("new[2].name", "")
+        ]
+    , ex_remainder = []
+    , ex_log = []
+    , ex_value = Just $
+        Member (Just (OrgMemberName "Lunchbox")) OrgRole_Normal OrgContentAccess_No :
+        Member (Just (OrgMemberName "")) OrgRole_Manager OrgContentAccess_No :
+        []
+    }
 
 data Example a =
   Example

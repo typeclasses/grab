@@ -3,7 +3,7 @@ module BagParse.Parser.Prelude
   ( nil
 
   -- * Entering the Action type
-  , log, value, valueMaybe, select, dump
+  , log, value, logAndValueMaybe, valueMaybe, select, dump
 
   -- * Within the Action type
   , discardRemainder, run, (>->)
@@ -49,6 +49,15 @@ valueMaybe :: Monoid log =>
 valueMaybe x =
     Action \() ->
         ((), mempty, x)
+
+logAndValueMaybe ::
+    log ->
+    Maybe value ->
+    Product log value
+
+logAndValueMaybe x y =
+    Action \() ->
+        ((), x, y)
 
 select :: Monoid log =>
     (input -> (remainder, selection)) ->

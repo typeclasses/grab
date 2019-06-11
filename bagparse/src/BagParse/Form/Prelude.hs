@@ -129,19 +129,22 @@ natListWithIndex d =
                     groups
 
             results :: [(Natural, Product err a)]
-            results = map (\(n, f) -> (n, X.run f (contextualize (NameNat n) d))) forms
-        in
-            X.log (foldMap (\(_, r) -> X.toLog r) results)
-            *>
-            X.valueMaybe (allJusts (
+            results =
                 map
-                    (\(n, r) ->
-                        case X.toValueMaybe r of
-                            Nothing -> Nothing
-                            Just v -> Just (n, v)
-                    )
-                    results
-            ))
+                    (\(n, f) -> (n, X.run f (contextualize (NameNat n) d)))
+                    forms
+        in
+            X.logAndValueMaybe
+                (foldMap (\(_, r) -> X.toLog r) results)
+                (allJusts (
+                    map
+                        (\(n, r) ->
+                            case X.toValueMaybe r of
+                                Nothing -> Nothing
+                                Just v -> Just (n, v)
+                        )
+                        results
+                ))
 
 allJusts :: [Maybe a] -> Maybe [a]
 allJusts [] = Just []
@@ -219,9 +222,9 @@ only g =
             case X.toRemainder r of
                 Form [] _ -> X.discardRemainder r
                 Form xs ctx ->
-                    X.log (X.toLog r <> foldMap (\(Param n _) -> ctx n .= err_unexpected) xs)
-                    *>
-                    X.valueMaybe (X.toValueMaybe r)
+                    X.logAndValueMaybe
+                        (X.toLog r <> foldMap (\(Param n _) -> ctx n .= err_unexpected) xs)
+                        (X.toValueMaybe r)
 
 (.=) :: Ord err => Name -> err -> Log err
 
