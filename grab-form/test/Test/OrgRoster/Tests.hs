@@ -1,13 +1,14 @@
+module Test.OrgRoster.Tests where
+
+import Test.OrgRoster.Concepts
+import Test.OrgRoster.Grabs
+
 import qualified Data.GrabForm as Grab
 import Data.GrabForm (only, natList, readName, Param (..), (>->), at, checkbox, text, optionalText, natListWithIndex)
 
 import Data.Bifunctor
 import Data.Coerce
 import Data.List.NonEmpty (NonEmpty (..))
-
-import Control.Monad (when)
-
-import Numeric.Natural
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -20,117 +21,8 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import System.IO (hSetEncoding, stdout, stderr, utf8)
-import System.Exit (exitFailure)
-
-type Error = Grab.EnglishSentence
-type Grab value = Grab.Grab Error value
-type Log = Grab.Log Error
-type Dump value = Grab.Dump Error value
-
-newtype OrgId = OrgId Text
-    deriving (Eq, Show)
-
-newtype OrgMemberName = OrgMemberName Text
-    deriving (Eq, Show)
-
--- | A position in an org's member list.
-
-newtype RosterOrdinal = RosterOrdinal Natural
-    deriving (Show, Eq, Ord)
-
--- | Whether an org member has permissions to administer the org.
-
-data OrgRole
-  = OrgRole_Normal   -- ^ No, a regular user with no management permission
-  | OrgRole_Manager  -- ^ Yes, this user is an org manager
-    deriving (Eq, Show)
-
--- | Whether an org member gets access to Type Classes content.
-
-data OrgContentAccess
-  = OrgContentAccess_Yes  -- ^ Yes, has access to content
-  | OrgContentAccess_No   -- ^ No, the membership does not grant content access
-    deriving (Eq, Show)
-
-data Roster =
-  Roster
-    { roster_org :: OrgId
-    , roster_members :: MemberList
-    }
-    deriving (Eq, Show)
-
-data MemberList =
-  MemberList
-    { members_existing :: Map RosterOrdinal Modification
-    , members_new :: [Member]
-    }
-    deriving (Eq, Show)
-
-data Modification
-  = Modification_Update Member
-  | Modification_Delete
-    deriving (Eq, Show)
-
-data Member =
-  Member
-    { member_name :: Maybe OrgMemberName
-    , member_role :: OrgRole
-    , member_access :: OrgContentAccess
-    }
-    deriving (Eq, Show)
-
-roster :: Grab Roster
-roster =
-    Roster
-        <$> (at "org" >-> only org)
-        <*> (at "members" >-> only memberList)
-
-org :: Grab OrgId
-org = fmap OrgId text
-
-memberList :: Grab MemberList
-memberList =
-    MemberList
-        <$> (at "existing" >-> only existingList)
-        <*> (at "new" >-> only (natList (only member)))
-
-existingList :: Grab (Map RosterOrdinal Modification)
-existingList =
-    fmap (Map.fromList . map (first RosterOrdinal))
-    (natListWithIndex (only modification))
-
-modification :: Grab Modification
-modification =
-  do
-    m <- member
-    r <- at "remove" >-> only (checkbox "yes")
-    return (if r then Modification_Delete else Modification_Update m)
-
-member :: Grab Member
-member =
-    Member
-        <$> (at "name" >-> only (fmap (fmap OrgMemberName) optionalText))
-        <*> (at "isManager" >-> only (fmap isManagerRole (checkbox "yes")))
-        <*> (at "isUser" >-> only (fmap isUserAccess (checkbox "yes")))
-
-isManagerRole :: Bool -> OrgRole
-isManagerRole = \case False -> OrgRole_Normal; True -> OrgRole_Manager
-
-isUserAccess :: Bool -> OrgContentAccess
-isUserAccess = \case False -> OrgContentAccess_No; True -> OrgContentAccess_Yes
-
-tests :: IO Bool
-tests =
-  checkParallel $$(discover)
-
-main :: IO ()
-main =
-  do
-    hSetEncoding stdout utf8
-    hSetEncoding stderr utf8
-    ok <- tests
-    when (not ok) exitFailure
+group :: Group
+group = $$(discover)
 
 prop_1 :: Property
 prop_1 = example
