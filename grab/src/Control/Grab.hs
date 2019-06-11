@@ -163,16 +163,18 @@ dump f = Grab \i -> let p = f i
 
 --- Within the Action type ---
 
-(>->) :: (Semigroup log) => Grab input remainder log x ->
-                            Dump x log value ->
-                            Grab input remainder log value
+(>->) :: Semigroup log
+    => Grab input remainder log x
+    -> Grab x r log value
+        -- ^ The remainder of this 'Grab' will be ignored, so it usually ought to be a 'Dump'.
+    -> Grab input remainder log value
 
 (>->) (Grab f) (Grab g) =
     Grab \i ->
         let (x, y, z) = f i
         in  case z of
                 Nothing -> (x, y, Nothing)
-                Just a -> let ((), y', z') = g a
+                Just a -> let (_, y', z') = g a
                           in  (x, y <> y', z')
 
 run :: input -> Grab input remainder log value ->

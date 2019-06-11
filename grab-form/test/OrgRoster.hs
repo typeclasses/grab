@@ -1,10 +1,5 @@
-import qualified BagParse.Form.Types as X
-import qualified BagParse.Form.Name as X
-import qualified BagParse.Form.Log as X
-import qualified BagParse.Form.Prelude as X
-
-import BagParse.Form.Input (Form (..), Param (..))
-import BagParse.Form.Prelude
+import qualified Data.GrabForm as Grab
+import Data.GrabForm (only, natList, readName, Param (..), (>->), at, checkbox, text, optionalText, natListWithIndex)
 
 import Data.Bifunctor
 import Data.Coerce
@@ -28,12 +23,10 @@ import qualified Hedgehog.Range as Range
 import System.IO (hSetEncoding, stdout, stderr, utf8)
 import System.Exit (exitFailure)
 
-type Error = EnglishSentence
-type Grab value = X.Grab Error value
-type Log = X.Log Error
-type Result value = X.Result Error value
-type Dump value = X.Dump Error value
-type Product value = X.Product Error value
+type Error = Grab.EnglishSentence
+type Grab value = Grab.Grab Error value
+type Log = Grab.Log Error
+type Dump value = Grab.Dump Error value
 
 newtype OrgId = OrgId Text
     deriving (Eq, Show)
@@ -319,15 +312,15 @@ data Example a =
     }
 
 example :: (Eq a, Show a) => Example a -> Property
-example (Example a xs r l mv) =
+example (Example a xs r logLines expectedValue) =
     withTests 1 $ property
       do
         let
             params = map (\(k, v) -> Param (readName k) v) xs
-            rem = map (\(k, v) -> Param (readName k) v) r
-            form = Form params id
-            res = run form a
+            expectedRemainder = map (\(k, v) -> Param (readName k) v) r
+            expectedLog = Text.unlines logLines
+            (gotRemainder, Grab.englishSentenceLogText -> gotLog, gotValue) =
+                Grab.grabParams a params
 
-        formParams (X.toRemainder res) === rem
-        englishSentenceLogText (X.toLog res) === Text.unlines l
-        X.toValueMaybe res === mv
+        (gotRemainder, gotLog, gotValue) ===
+            (expectedRemainder, expectedLog, expectedValue)

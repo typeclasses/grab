@@ -15,13 +15,7 @@ library
     , text
 
   exposed-modules:
-      BagParse.Form.Types
-    , BagParse.Form.Errors
-    , BagParse.Form.English
-    , BagParse.Form.Input
-    , BagParse.Form.Log
-    , BagParse.Form.Name
-    , BagParse.Form.Prelude
+      Data.GrabForm
 
   default-extensions:
       BlockArguments
@@ -61,3 +55,4 @@ test-suite OrgRoster
     , OverloadedStrings
     , ScopedTypeVariables
     , TemplateHaskell
+    , ViewPatterns
