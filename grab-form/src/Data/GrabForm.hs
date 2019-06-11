@@ -264,15 +264,15 @@ type Extract err a =
 --- Parameter name selection ---
 
 at :: Ord err => NamePart -> Grab err Form
-at k = Grab.select (formPrefixPartition k)
+at k = Grab.partition (formPrefixPartition k)
 
   where
     formPrefixPartition :: NamePart -> Form -> (Form, Form)
     formPrefixPartition k (Form xs ctx) =
         let
-            (r, s) = partitionMaybe (namePrefixPartition k) xs
+            (s, r) = partitionMaybe (namePrefixPartition k) xs
         in
-            (Form r ctx, Form s (ctx . coerce (k :)))
+            (Form s (ctx . coerce (k :)), Form r ctx)
 
     namePrefixPartition :: NamePart -> Param -> Maybe Param
     namePrefixPartition k (Param name value) =
@@ -284,11 +284,11 @@ at k = Grab.select (formPrefixPartition k)
 
 here :: Ord err => Grab err Form
 here =
-    Grab.select \(Form xs ctx) ->
+    Grab.partition \(Form xs ctx) ->
         let
-            (r, s) = partitionMaybe herePartition xs
+            (s, r) = partitionMaybe herePartition xs
         in
-            (Form r ctx, Form s ctx)
+            (Form s ctx, Form r ctx)
 
   where
     herePartition :: Param -> Maybe Param
@@ -358,17 +358,17 @@ unique :: Ord a => [a] -> [a]
 unique =
     Set.toList . Set.fromList
 
-partitionMaybe :: (a -> Maybe b) -> [a] -> ([a], [b])
+partitionMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
 partitionMaybe f = fix \r ->
     \case
         [] -> ([], [])
         x : xs ->
             let
-              (as, bs) = r xs
+              (bs, as) = r xs
             in
               case f x of
-                Nothing -> (x : as, bs)
-                Just y  -> (as, y : bs)
+                Nothing -> (bs, x : as)
+                Just y  -> (y : bs, as)
 
 allJusts :: [Maybe a] -> Maybe [a]
 allJusts = fix \r -> \case
@@ -384,7 +384,7 @@ only :: forall err a. (Ord err, Err_Unexpected err) =>
 only g =
     Grab.dump \i ->
         let
-            r = Grab.run i g
+            r = Grab.runGrab i g
         in
             case Grab.residue r of
                 Form [] _ -> Grab.discardResidue r
@@ -406,7 +406,7 @@ natListWithIndex :: forall err a. Ord err =>
 
 natListWithIndex =
   \d ->
-    Grab.select selectNats
+    Grab.partition selectNats
     Grab.>->
     Grab.dump \(xs, ctx) ->
         let
@@ -424,7 +424,7 @@ natListWithIndex =
                     groups
 
             results :: [(Natural, Extract err a)]
-            results = map (\(n, f) -> (n, Grab.run f d)) forms
+            results = map (\(n, f) -> (n, Grab.runDump f d)) forms
         in
             Grab.extract
                 (foldMap (\(_, r) -> Grab.log r) results)
@@ -439,12 +439,12 @@ natListWithIndex =
                 ))
 
   where
-    selectNats :: Form -> (Form, ([(Natural, Param)], Name -> Name))
+    selectNats :: Form -> (([(Natural, Param)], Name -> Name), Form)
     selectNats (Form xs ctx) =
         let
-            (r, s) = partitionMaybe f xs
+            (s, r) = partitionMaybe f xs
         in
-            (Form r ctx, (s, ctx))
+            ((s, ctx), Form r ctx)
       where
         f :: Param -> Maybe (Natural, Param)
         f (Param (Name (NameNat n : ns)) v) = Just (n, Param (Name ns) v)
@@ -463,7 +463,7 @@ natList d =
 grabParams :: Grab err a -> [Param] -> ([Param], Log err, Maybe a)
 grabParams g xs =
     let
-        r = Grab.run (Form xs id) g
+        r = Grab.runGrab (Form xs id) g
         rem = Grab.residue r
     in
         (f (Grab.residue r), Grab.log r, Grab.desideratum r)
@@ -474,6 +474,6 @@ grabParams g xs =
 dumpParams :: Dump err a -> [Param] -> (Log err, Maybe a)
 dumpParams d xs =
     let
-        r = Grab.run (Form xs id) d
+        r = Grab.runDump (Form xs id) d
     in
         (Grab.log r, Grab.desideratum r)
