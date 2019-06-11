@@ -8,19 +8,24 @@
 
 module Control.Grab
   (
-  -- * The main type
+  -- * Types
+  -- ** The Grab type
     Grab (..)
-
-  -- * Type aliases
+  -- ** Aliases: Simple, Dump, Result, Extract
   , Simple, Dump, Result, Extract
 
-  -- * Creating grabs
-  , success, failure, extract, select, dump
+  -- * Creation
+  -- ** Making grabs
+  , select, (>->)
+  -- ** Making dumps
+  , dump, discardResidue
+  -- ** Making trivial extracts
+  , success, failure, extract
 
-  -- * Modifying grabs
-  , discardResidue, run, (>->), mapLog
-
-  -- * Deconstructing results
+  -- * Use
+  -- ** Applying a grab to an input
+  , run
+  -- ** Deconstructing results
   , residue, log, desideratum
 
   ) where
@@ -36,7 +41,7 @@ import Data.Semigroup (Semigroup (..))
 import Prelude ()
 
 
---- The main type ---
+--- The Grab type ---
 
 {- |
 
@@ -57,7 +62,7 @@ A 'Grab':
 Specializations of this type:
 
   * If the bag and residue types are the same, the grab
-    is a __'Simple'__ grab.
+    is a __'Simple'__ grab and it has an 'Applicative' instance.
 
   * If the residue is @()@, the grab is a __'Dump'__; it
     dumps out the entire bag so there is nothing remaining.
@@ -205,15 +210,18 @@ dump :: (bag -> Extract log desideratum) -> Dump bag log desideratum
 dump f = Grab \i -> let p = f i
                     in  ((), log p, desideratum p)
 
-
---- Modifying grabs ---
-
+-- | @a >-> b@ is a pipeline of two grabs, using the output of /a/
+-- as the input to /b/.
 (>->) :: Semigroup log
     => Grab bag residue log x
+        -- ^ The first grab /a/, whose desideratum @x@ will be
+        --   passed as input to the second grab /b/.
     -> Grab x r log desideratum
-        -- ^ The residue of this 'Grab' will be ignored,
-        --   so it usually ought to be a 'Dump'.
+        -- ^ The second grab /b/. The residue of this grab will be
+        --   ignored, so it usually ought to be a 'Dump'.
     -> Grab bag residue log desideratum
+        -- ^ A grab whose result is the residue of /a/, the combined
+        --   logs of both /a/ and /b/, and the desideratum of /b/.
 
 (>->) (Grab f) (Grab g) =
     Grab \i ->
@@ -223,38 +231,29 @@ dump f = Grab \i -> let p = f i
                 Just a -> let (_, y', z') = g a
                           in  (x, y <> y', z')
 
-run :: bag -> Grab bag residue log desideratum ->
-              Result residue log desideratum
-run x (Grab f) = Grab \() -> f x
-
 discardResidue :: Grab bag residue log desideratum ->
                   Dump bag log desideratum
 discardResidue (Grab f) =
     Grab \bag -> let (_, y, z) = f bag
                  in  ((), y, z)
 
-mapLog :: (log -> log') -> Grab bag residue log  desideratum ->
-                           Grab bag residue log' desideratum
-mapLog f = first f
 
+--- Using grabs ---
 
---- Deconstructing results ---
+run :: bag -> Grab bag residue log desideratum ->
+              Result residue log desideratum
+run x (Grab f) = Grab \() -> f x
 
-{- | The desired object, if one was successfully extracted from the bag.
-
-This function can be used with both 'Result' and 'Extract'. -}
-
-desideratum :: Result residue log desideratum -> Maybe desideratum
+desideratum
+    :: Result residue log desideratum -- ^ Either a 'Result' or an 'Extract'
+    -> Maybe desideratum -- ^ The desired object, if one was successfully extracted from the bag
 desideratum (Grab f) = let (_, _, x) = f () in x
 
-{- | Any extra information produced during the grab, such as error messages.
-
-This function can be used with both 'Result' and 'Extract'. -}
-
-log :: Result residue log desideratum -> log
+log :: Result residue log desideratum -- ^ Either a 'Result' or an 'Extract'
+    -> log -- ^ Any extra information produced during the grab, such as error messages
 log (Grab f) = let (_, x, _) = f () in x
 
-{- | The portion of the bag that was not consumed by the grab. -}
-
-residue :: Result residue log desideratum -> residue
+residue
+    :: Result residue log desideratum -- ^ The result of 'run'ning a 'Grab'
+    -> residue -- ^ The portion of the bag that was not consumed by the grab
 residue (Grab f) = let (x, _, _) = f () in x
