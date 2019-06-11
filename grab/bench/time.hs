@@ -19,6 +19,6 @@ main = defaultMain [
       (\i -> let n = i * 10000 in
         bench (show i) (nf parity n)
       )
-      <$> [1..3]
+      <$> [1..4]
     )
   ]
