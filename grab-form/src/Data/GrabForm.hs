@@ -16,7 +16,7 @@ module Data.GrabForm
   , showName, readName
 
   -- * Log
-  , Log (..), contextualizeLog
+  , Log (..)
 
   -- * Errors
   , Err_Missing (..)
@@ -160,16 +160,6 @@ deriving stock instance Show Name
 newtype Log a =
   Log
     (Map Name (Set a))
-
-contextualizeLog ::
-    NamePart -> Log a -> Log a
-
-contextualizeLog x =
-    Log .
-    Map.fromList .
-    map (first (\(Name xs) -> Name (x : xs))) .
-    Map.toList .
-    (\(Log m) -> m)
 
 instance Ord a => Semigroup (Log a) where
     (<>) = coerce multimapUnion
