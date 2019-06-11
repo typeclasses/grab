@@ -1,1 +1,1 @@
-{"resolver": "lts-13.17", packages: ["bagparse"]}
+{"resolver": "lts-13.17", packages: ["grab"]}
