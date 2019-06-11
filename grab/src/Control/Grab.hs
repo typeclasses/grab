@@ -240,6 +240,9 @@ discardResidue (Grab f) =
 
 --- Using grabs ---
 
+-- | When @residue@ is @()@, this function specializes to
+--
+-- > run :: bag -> Dump bag log desideratum -> Extract log desideratum
 run :: bag -> Grab bag residue log desideratum ->
               Result residue log desideratum
 run x (Grab f) = Grab \() -> f x
