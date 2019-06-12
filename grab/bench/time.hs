@@ -8,8 +8,9 @@ import qualified Data.List as List
 import Prelude hiding (filter)
 
 parity :: Integer -> Maybe (Integer, Integer)
-parity n = Grab.desideratum . Grab.runGrab [1..n] $
-  (,) <$> (sum <$> filter even) <*> (sum <$> filter odd)
+parity n = Grab.desideratum (Grab.runGrab g [1..n])
+  where
+    g = (,) <$> (sum <$> filter even) <*> (sum <$> filter odd)
 
 filter :: (a -> Bool) -> Grab.Simple [a] () [a]
 filter p = Grab.partition (List.partition p)

@@ -298,16 +298,16 @@ discardResidue (Grab f) =
 
 -- | When @residue@ is @()@, this function specializes to 'runDump'.
 runGrab
-    :: bag
-        -- ^ The input.
-    -> Grab bag residue log desideratum
+    :: Grab bag residue log desideratum
         -- ^ A grab, which may consume some portion of the input.
+    -> bag
+        -- ^ The input.
     -> Result residue log desideratum
         -- ^ The result of performing the grab, which consists of
         --   the @residue@ representing the remaining portion of
         --   input, a @log@ for providing error output, and a
         --   @desideratum@ if the grab was successful.
-runGrab x (Grab f) =
+runGrab (Grab f) x =
     let
         !r = f x
     in
@@ -315,10 +315,10 @@ runGrab x (Grab f) =
 
 -- | This is a specialization of the more general 'runGrab' function.
 runDump
-    :: bag
-        -- ^ The input.
-    -> Dump bag log desideratum
+    :: Dump bag log desideratum
         -- ^ A dump which consumes the input.
+    -> bag
+        -- ^ The input.
     -> Extract log desideratum
         -- ^ The result extracted from the input, which
         --   consists of a @log@ for providing error output

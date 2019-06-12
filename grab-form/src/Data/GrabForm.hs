@@ -344,7 +344,7 @@ only :: forall err a. (Ord err, Err_Unexpected err) =>
 only g =
     Grab.dump \i ->
         let
-            r = Grab.runGrab i g
+            r = Grab.runGrab g i
         in
             case Grab.residue r of
                 Form [] _ -> Grab.discardResidue r
@@ -380,8 +380,8 @@ natListWithIndex =
     Grab.dump \(xs, ctx) ->
         for (groupByFst xs) \(n, xs') ->
             Grab.runDump
-                (Form xs' (ctx . coerce (NameNat n :)))
                 (fmap (n,) d)
+                (Form xs' (ctx . coerce (NameNat n :)))
 
   where
     selectNats :: Form -> (([(Natural, Param)], Name -> Name), Form)
@@ -408,7 +408,7 @@ natList d =
 readTextParams :: Ord err => Dump err a -> [(Text, Text)] -> (Log err, Maybe a)
 readTextParams d x =
      let
-         r = Grab.runDump (textParamsToForm x) d
+         r = Grab.runDump d (textParamsToForm x)
      in
          (Grab.log r, Grab.desideratum r)
 

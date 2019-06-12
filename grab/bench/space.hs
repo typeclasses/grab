@@ -15,7 +15,7 @@ import Data.Monoid
 main :: IO ()
 main =
   do
-    let r = Grab.runGrab [1..30000] g
+    let r = Grab.runGrab g [1..30000]
     putStrLn ("desideratum: " ++ show (Grab.desideratum r))
     putStrLn ("log: " ++ show (Grab.log r))
 
