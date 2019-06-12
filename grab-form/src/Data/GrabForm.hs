@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 {-# LANGUAGE
 
     BlockArguments, DerivingStrategies, GeneralizedNewtypeDeriving,
@@ -51,7 +53,6 @@ module Data.GrabForm
 import Prelude hiding ((/))
 
 import Data.Coerce (coerce)
-import Data.Bifunctor (Bifunctor (..))
 import Data.Function (fix)
 import Data.String (IsString (fromString))
 import Data.Traversable (for)
@@ -113,9 +114,11 @@ showName (Name (x : xs)) = showNamePart x <> showNameRemainder xs
 
     showNamePart (NameStr s) = s
     showNamePart (NameNat n) = showNat n
+    showNamePart (NameErr s) = s
 
     showNamePart' (NameStr s) = "." <> s
     showNamePart' (NameNat n) = showNat n
+    showNamePart' (NameErr s) = s
 
     showNat n = "[" <> Text.pack (show @Natural n) <> "]"
 
@@ -247,9 +250,6 @@ type Grab err a =
 type Dump err a =
     Grab.Dump Form (Log err) a
 
-type Result err a =
-    Grab.Result Form (Log err) a
-
 type Extract err a =
     Grab.Extract (Log err) a
 
@@ -264,14 +264,13 @@ at k =
         in
             (Form s (ctx . coerce (k :)), Form r ctx)
 
-  where
-    namePrefixPartition :: NamePart -> Param -> Maybe Param
-    namePrefixPartition k (Param name value) =
-        case name of
-            Name (x : xs) | x == k ->
-                Just (Param (Name xs) value)
-            _ ->
-                Nothing
+namePrefixPartition :: NamePart -> Param -> Maybe Param
+namePrefixPartition k (Param name value) =
+    case name of
+        Name (x : xs) | x == k ->
+            Just (Param (Name xs) value)
+        _ ->
+            Nothing
 
 here :: Ord err => Grab err Form
 here =
@@ -281,12 +280,11 @@ here =
         in
             (Form s ctx, Form r ctx)
 
-  where
-    herePartition :: Param -> Maybe Param
-    herePartition p@(Param name value) =
-        case name of
-            Name [] -> Just p
-            _ -> Nothing
+herePartition :: Param -> Maybe Param
+herePartition =
+    \case
+        p@(Param (Name []) _) -> Just p
+        _ -> Nothing
 
 (/) :: Ord err =>
     Grab err Form ->
@@ -307,9 +305,9 @@ text = here / Grab.dump f
     f :: Form -> Extract err Text
     f (Form xs ctx) =
         case unique (map paramValue xs) of
-            []         -> Grab.failure (ctx (Name []) .= err_missing)
-            x : []     -> Grab.success x
-            _ : _ : [] -> Grab.failure (ctx (Name []) .= err_duplicate)
+            []        -> Grab.failure (ctx (Name []) .= err_missing)
+            x : []    -> Grab.success x
+            _ : _ : _ -> Grab.failure (ctx (Name []) .= err_duplicate)
 
 optionalText :: forall err.
     (Ord err, Err_Duplicate err) =>
@@ -320,9 +318,9 @@ optionalText = here / Grab.dump f
     f :: Form -> Extract err (Maybe Text)
     f (Form xs ctx) =
         case unique (map paramValue xs) of
-            []         -> Grab.success Nothing
-            x : []     -> Grab.success (Just x)
-            _ : _ : [] -> Grab.failure (ctx (Name []) .= err_duplicate)
+            []        -> Grab.success Nothing
+            x : []    -> Grab.success (Just x)
+            _ : _ : _ -> Grab.failure (ctx (Name []) .= err_duplicate)
 
 checkbox :: forall err.
     (Ord err, Err_OnlyAllowed err) =>
@@ -334,9 +332,9 @@ checkbox yes = here / Grab.dump f
     f :: Form -> Extract err Bool
     f (Form xs ctx) =
         case List.partition (== yes) (unique (map paramValue xs)) of
-            ( []     , []    ) -> Grab.success False
-            ( _ : [] , []    ) -> Grab.success True
-            ( _      , _ : _ ) -> Grab.failure (ctx (Name []) .= err_onlyAllowed yes)
+            ( []    , []    ) -> Grab.success False
+            ( _ : _ , []    ) -> Grab.success True
+            ( _     , _ : _ ) -> Grab.failure (ctx (Name []) .= err_onlyAllowed yes)
 
 
 --- Internal ---
@@ -360,12 +358,6 @@ partitionMaybe f = fix \r ->
               case f x of
                 Nothing -> (bs, x : as)
                 Just y  -> (y : bs, as)
-
-allJusts :: [Maybe a] -> Maybe [a]
-allJusts = fix \r -> \case
-    [] -> Just []
-    (Nothing : _) -> Nothing
-    (Just x : xs) -> (x :) <$> r xs
 
 
 --- Dealing with unrecognized parameters ---
@@ -437,7 +429,6 @@ grabParams :: Grab err a -> [Param] -> ([Param], Log err, Maybe a)
 grabParams g xs =
     let
         r = Grab.runGrab (Form xs id) g
-        rem = Grab.residue r
     in
         (f (Grab.residue r), Grab.log r, Grab.desideratum r)
 

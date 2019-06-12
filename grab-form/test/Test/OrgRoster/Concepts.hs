@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Test.OrgRoster.Concepts where
 
 import Numeric.Natural (Natural)

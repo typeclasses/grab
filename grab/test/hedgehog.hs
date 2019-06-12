@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-unused-imports #-}
+
 {-# LANGUAGE
 
     BlockArguments, LambdaCase, OverloadedStrings,
@@ -46,9 +48,9 @@ prop_2 = withTests 1 $ property
     let
         r = Grab.failure "a" *>
             Grab.failure "b" *>
-            Grab.success 4
+            Grab.success (4 :: Integer)
 
-    Grab.log r === "ab"
+    Grab.log r === ("ab" :: String)
     Grab.desideratum r === Nothing
 
 prop_3 :: Property

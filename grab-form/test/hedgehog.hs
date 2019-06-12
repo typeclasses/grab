@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import qualified Test.OrgRoster.Tests
 
 import Control.Monad (when)

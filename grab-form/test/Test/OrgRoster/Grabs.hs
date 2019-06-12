@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 {-# LANGUAGE
 
     ApplicativeDo, BlockArguments, LambdaCase,

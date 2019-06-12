@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import qualified Control.Grab as Grab
 
 import Criterion.Main

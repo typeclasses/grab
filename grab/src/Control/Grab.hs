@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 {-# LANGUAGE
 
     BangPatterns, BlockArguments, DeriveFunctor,
@@ -33,8 +35,6 @@ module Control.Grab
 
 import Control.Applicative (Applicative (..))
 import Data.Bifunctor (Bifunctor (..))
-import Data.Coerce (coerce)
-import Data.Either (Either (..))
 import Data.Functor (Functor (..))
 import Data.Maybe (Maybe (..))
 import Data.Monoid (Monoid (..))
@@ -187,9 +187,9 @@ bimapGrab :: forall bag residue log log' a a'.
 bimapGrab f g (Grab x) =
     Grab \bag ->
         let
-            (bag', log, a) = x bag
+            (bag', lg, a) = x bag
         in
-            (bag', f log, fmap @Maybe g a)
+            (bag', f lg, fmap @Maybe g a)
 
 
 --- Creating grabs ---

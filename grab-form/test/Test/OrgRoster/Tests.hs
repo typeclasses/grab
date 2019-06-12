@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-unused-imports #-}
+
 {-# LANGUAGE
 
     BlockArguments, LambdaCase, OverloadedStrings,
@@ -13,18 +15,12 @@ import Test.OrgRoster.Concepts
 import Test.OrgRoster.Grabs
 
 import qualified Data.GrabForm as Grab
-import Data.GrabForm (only, natList, readName, Param (..), (/), at, checkbox, text, optionalText, natListWithIndex)
+import Data.GrabForm (only, natList, readName, Param (..), (/), at)
 
-import Data.Bifunctor
-import Data.Coerce
-import Data.List.NonEmpty (NonEmpty (..))
-
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
