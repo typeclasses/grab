@@ -256,16 +256,18 @@ type Extract err a =
 --- Parameter name selection ---
 
 at :: Ord err => NamePart -> Grab err Form
-at k = Grab.partition (formPrefixPartition k)
-
-  where
-    formPrefixPartition :: NamePart -> Form -> (Form, Form)
-    formPrefixPartition k (Form xs ctx) =
+at k =
+    Grab.partition \(Form xs ctx) ->
         let
-            (s, r) = partitionMaybe (namePrefixPartition k) xs
+            (s, r) =
+                partitionMaybe
+                    (namePrefixPartition k
+                    )
+                    xs
         in
             (Form s (ctx . coerce (k :)), Form r ctx)
 
+  where
     namePrefixPartition :: NamePart -> Param -> Maybe Param
     namePrefixPartition k (Param name value) =
         case name of
