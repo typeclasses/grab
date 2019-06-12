@@ -2,51 +2,45 @@
 
 {-# LANGUAGE
 
-    BlockArguments, DerivingStrategies, GeneralizedNewtypeDeriving,
-    LambdaCase, OverloadedStrings, ScopedTypeVariables,
-    StandaloneDeriving, TupleSections, TypeApplications, ViewPatterns
+    BlockArguments, DerivingStrategies, FlexibleInstances,
+    GeneralizedNewtypeDeriving, LambdaCase, OverloadedStrings,
+    ScopedTypeVariables, StandaloneDeriving, TupleSections,
+    TypeApplications, ViewPatterns
 
 #-}
 
 module Data.GrabForm
   (
-  -- * Form
-    Form (..), Param (..)
+  -- * What is a form
+  -- ** The Parameter type
+    Param (..)
+  -- ** The Name type
+  , Name (..), NamePart (..), showName, readName
+  -- ** The Form type
+  , Form (..)
 
-  -- * Name
-  , Name (..), NamePart (..)
-  , showName, readName
-
-  -- * Log
+  -- * Error messages
+  -- ** The Log type
   , Log (..)
+  -- ** Error classes
+  , Err_Missing (..), Err_Duplicate (..)
+  , Err_Unexpected (..), Err_OnlyAllowed (..)
+  -- ** English sentences as error messages
+  , EnglishSentence (..), englishSentenceLogText
 
-  -- * Errors
-  , Err_Missing (..)
-  , Err_Duplicate (..)
-  , Err_Unexpected (..)
-  , Err_OnlyAllowed (..)
-
-  -- * English
-  , EnglishSentence (..)
-  , englishSentenceLogText
-
-  -- * Grab types
+  -- * Grabbing data from forms
+  -- ** Types: Grab and Dump
   , Grab, Dump
-
-  -- * Parameter name selection
+  -- ** Parameter name selection
   , at, here, (/)
-
-  -- * Simple form fields
+  -- ** Simple form fields
   , text, optionalText, checkbox
-
-  -- * Lists
+  -- ** Lists
   , natList, natListWithIndex
-
-  -- * Dealing with unrecognized parameters
-  , only, etAlia
-
-  -- * Running grabs
-  , grabParams, dumpParams
+  -- ** Dealing with unrecognized parameters
+  , only, etAlia, remainder
+  -- ** Applying a grab to a form
+  , readTextParams
 
   ) where
 
@@ -65,7 +59,6 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Read as Text
 
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Data.Set (Set)
@@ -97,13 +90,18 @@ deriving stock instance Show Param
 
 newtype Name = Name [NamePart]
 
+instance IsString Name
+  where
+    fromString = readName . Text.pack
+
 data NamePart
   = NameStr Text
   | NameNat Natural
   | NameErr Text
 
-instance IsString NamePart where
-  fromString = NameStr . Text.pack
+instance IsString NamePart
+  where
+    fromString = NameStr . Text.pack
 
 showName :: Name -> Text
 showName (Name []) = ""
@@ -161,29 +159,19 @@ deriving stock instance Show Name
 
 --- Log ---
 
-newtype Log a =
+newtype Log err =
   Log
-    (Map Name (Set a))
+    (Set (Name, err))
 
-instance Ord a => Semigroup (Log a) where
-    (<>) = coerce multimapUnion
+deriving newtype instance Ord err => Semigroup (Log err)
+deriving newtype instance Ord err => Monoid (Log err)
 
-instance Ord a => Monoid (Log a) where
-    mempty = coerce multimapEmpty
+deriving stock instance Eq err => Eq (Log err)
+deriving stock instance Show err => Show (Log err)
 
-type Multimap a b = Map a (Set b)
-
-multimapEmpty :: Multimap a b
-multimapEmpty = Map.empty
-
-multimapUnion :: (Ord a, Ord b) =>
-    Multimap a b ->
-    Multimap a b ->
-    Multimap a b
-
-multimapUnion = Map.unionWith (<>)
-
-deriving stock instance Eq a => Eq (Log a)
+(.=) :: Ord err => Name -> err -> Log err
+k .= err =
+    coerce (Set.singleton (k, err))
 
 
 --- Errors ---
@@ -215,6 +203,7 @@ instance Err_OnlyAllowed () where err_onlyAllowed = const ()
 newtype EnglishSentence = EnglishSentence Text
 
 deriving newtype instance IsString EnglishSentence
+deriving newtype instance Show EnglishSentence
 
 deriving stock instance Eq EnglishSentence
 deriving stock instance Ord EnglishSentence
@@ -227,18 +216,13 @@ instance Err_OnlyAllowed EnglishSentence where err_onlyAllowed value = EnglishSe
 englishSentenceLogText :: Log EnglishSentence -> Text
 
 englishSentenceLogText =
-    Text.unlines . map (uncurry f) . Map.toList . coerce
+    Text.unlines . map (uncurry f) . Set.toList . coerce
   where
-    f :: Name -> Set EnglishSentence -> Text
-    f name errs = Text.concat
+    f :: Name -> EnglishSentence -> Text
+    f name err = Text.concat
         [ showName name
         , ": "
-        , Text.unwords
-            (
-              map
-                (coerce @EnglishSentence @Text)
-                (Set.toList errs)
-            )
+        , coerce @EnglishSentence @Text err
         ]
 
 
@@ -288,8 +272,8 @@ herePartition =
 
 (/) :: Ord err =>
     Grab err Form ->
-    Dump err desideratum ->
-    Grab err desideratum
+    Dump err a ->
+    Grab err a
 
 (/) = (Grab./)
 
@@ -339,10 +323,6 @@ checkbox yes = here / Grab.dump f
 
 --- Internal ---
 
-(.=) :: Ord err => Name -> err -> Log err
-k .= err =
-    coerce (Map.singleton k (Set.singleton err))
-
 unique :: Ord a => [a] -> [a]
 unique =
     Set.toList . Set.fromList
@@ -379,6 +359,9 @@ only g =
 
 etAlia :: Grab err a -> Dump err a
 etAlia = Grab.discardResidue
+
+remainder :: Ord err => Grab err [Param]
+remainder = Grab.partition \(Form xs _) -> (xs, Form [] id)
 
 
 --- Lists ---
@@ -423,21 +406,17 @@ natList d =
     (map snd) <$> natListWithIndex d
 
 
---- Running grabs ---
+--- Applying a grab to a form ---
 
-grabParams :: Grab err a -> [Param] -> ([Param], Log err, Maybe a)
-grabParams g xs =
-    let
-        r = Grab.runGrab (Form xs id) g
-    in
-        (f (Grab.residue r), Grab.log r, Grab.desideratum r)
+readTextParams :: Ord err => Dump err a -> [(Text, Text)] -> (Log err, Maybe a)
+readTextParams d x =
+     let
+         r = Grab.runDump (textParamsToForm x) d
+     in
+         (Grab.log r, Grab.desideratum r)
 
-  where
-    f x = map (\(Param n v) -> Param (formContext x n) v) (formParams x)
+textParamsToForm :: [(Text, Text)] -> Form
+textParamsToForm xs = Form (map textParam xs) id
 
-dumpParams :: Dump err a -> [Param] -> (Log err, Maybe a)
-dumpParams d xs =
-    let
-        r = Grab.runDump (Form xs id) d
-    in
-        (Grab.log r, Grab.desideratum r)
+textParam :: (Text, Text) -> Param
+textParam (x, y) = Param (readName x) y
