@@ -2,7 +2,7 @@
 
     BlockArguments, DerivingStrategies, GeneralizedNewtypeDeriving,
     LambdaCase, OverloadedStrings, ScopedTypeVariables,
-    StandaloneDeriving, TypeApplications, ViewPatterns
+    StandaloneDeriving, TupleSections, TypeApplications, ViewPatterns
 
 #-}
 
@@ -54,6 +54,7 @@ import Data.Coerce (coerce)
 import Data.Bifunctor (Bifunctor (..))
 import Data.Function (fix)
 import Data.String (IsString (fromString))
+import Data.Traversable (for)
 
 import Numeric.Natural (Natural)
 
@@ -405,14 +406,10 @@ natListWithIndex =
     Grab.partition selectNats
     Grab./
     Grab.dump \(xs, ctx) ->
-        traverse
-            (\(n, xs') ->
-                let
-                    f = Form xs' (ctx . coerce (NameNat n :))
-                in
-                    (\a -> (n, a)) <$> Grab.runDump f d
-            )
-            (groupByFst xs)
+        for (groupByFst xs) \(n, xs') ->
+            Grab.runDump
+                (Form xs' (ctx . coerce (NameNat n :)))
+                (fmap (n,) d)
 
   where
     selectNats :: Form -> (([(Natural, Param)], Name -> Name), Form)
