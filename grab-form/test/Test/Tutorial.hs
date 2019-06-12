@@ -78,7 +78,7 @@ prop_nameAndState_success =
 When receiving information submitted from an external source, there is usually
 some possibility that the input is invalid. Consider the following form that is
 missing the "state" field. In this case, the result we get is `Nothing`,
-accompanied by an error message indicating that a required parameter is missing.
+accompanied by an error message indicating that something is missing.
 
 -}
 
@@ -121,8 +121,7 @@ do not prevent us from being able to read the form. Whether you choose `only` or
 affect whether reading the form succeeds or fails.
 
 Duplicate parameters are not permitted, since we cannot know which of the values
-to accept as the real one. Alonzo must make up his mind whether he lives in
-Georgia or Montana:
+to accept as the real one. Alonzo cannot live in both Georgia and Montana:
 
 -}
 
@@ -170,14 +169,14 @@ questions. If we were using a data format like YAML, it might look like this:
 To cajole this data into our concept of a form as a list of parameters, we need
 to flatten it somehow. We adopt the following convention:
 
-    name:          Alonzo
-    state:         Montana
-    security[0].Q: What is your favorite hobby?
-    security[0].A: watching cars
-    security[1].Q: What is your oldest sibling's name?
-    security[1].A: melman
-    security[2].Q: What was the make and model of your first car?
-    security[2].A: bmw x5
+    name:           Alonzo
+    state:          Montana
+    security[1].Q:  What is your favorite hobby?
+    security[1].A:  watching cars
+    security[2].Q:  What is your oldest sibling's name?
+    security[2].A:  melman
+    security[3].Q:  What was the make and model of your first car?
+    security[3].A:  bmw x5
 
 -}
 
@@ -283,8 +282,8 @@ prop_manyErrors =
         , ("security[2].A2", "xyz")
         ]
     ~>
-    ( Log [ ("itchy face", "Unexpected parameter.")
-          , ("name", "Required parameter is missing.")
+    ( Log [ ("name", "Required parameter is missing.")
+          , ("itchy face", "Unexpected parameter.")
           , ("security[1].A", "Parameter may not appear more than once.")
           , ("security[2].A2", "Unexpected parameter.")
           ]
