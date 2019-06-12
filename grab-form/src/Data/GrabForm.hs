@@ -259,11 +259,7 @@ at :: Ord err => NamePart -> Grab err Form
 at k =
     Grab.partition \(Form xs ctx) ->
         let
-            (s, r) =
-                partitionMaybe
-                    (namePrefixPartition k
-                    )
-                    xs
+            (s, r) = partitionMaybe (namePrefixPartition k) xs
         in
             (Form s (ctx . coerce (k :)), Form r ctx)
 
@@ -394,6 +390,12 @@ etAlia = Grab.discardResidue
 
 --- Lists ---
 
+groupByFst :: Ord a => [(a, b)] -> [(a, [b])]
+groupByFst =
+    Map.toList .
+    foldr (Map.unionWith (++)) Map.empty .
+    map (\(a, b) -> Map.singleton a [b])
+
 natListWithIndex :: forall err a. Ord err =>
     Dump err a ->
     Grab err [(Natural, a)]
@@ -403,34 +405,14 @@ natListWithIndex =
     Grab.partition selectNats
     Grab./
     Grab.dump \(xs, ctx) ->
-        let
-            groups :: [(Natural, [Param])]
-            groups = Map.toList $
-                foldr
-                    (Map.unionWith (++))
-                    Map.empty
-                    (map (\(n, param) -> Map.singleton n [param]) xs)
-
-            forms :: [(Natural, Form)]
-            forms =
-                map
-                    (\(n, xs') -> (n, Form xs' (ctx . coerce (NameNat n :))))
-                    groups
-
-            results :: [(Natural, Extract err a)]
-            results = map (\(n, f) -> (n, Grab.runDump f d)) forms
-        in
-            Grab.extract
-                (foldMap (\(_, r) -> Grab.log r) results)
-                (allJusts (
-                    map
-                        (\(n, r) ->
-                            case Grab.desideratum r of
-                                Nothing -> Nothing
-                                Just v -> Just (n, v)
-                        )
-                        results
-                ))
+        traverse
+            (\(n, xs') ->
+                let
+                    f = Form xs' (ctx . coerce (NameNat n :))
+                in
+                    (\a -> (n, a)) <$> Grab.runDump f d
+            )
+            (groupByFst xs)
 
   where
     selectNats :: Form -> (([(Natural, Param)], Name -> Name), Form)
