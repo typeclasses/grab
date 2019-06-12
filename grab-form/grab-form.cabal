@@ -3,6 +3,8 @@ cabal-version: 2.4
 name: grab-form
 version: 0.0.0.1
 
+tested-with: GHC==8.6.5
+
 library
   hs-source-dirs: src
   default-language: Haskell2010
