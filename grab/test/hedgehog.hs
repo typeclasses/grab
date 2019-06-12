@@ -79,13 +79,77 @@ prop_4 =
         g =
             (,)
                 <$> ( Grab.partition (List.partition even)
-                    / Grab.dump (\xs -> Grab.failure ())
+                    / Grab.dump (\_ -> Grab.failure ())
                     )
                 <*> ( Grab.partition (List.partition odd)
                     / Grab.dump (\xs -> Grab.success (sum xs))
                     )
 
-        r = Grab.runGrab g (1 : 2 : undefined)
+        r = Grab.runGrab g undefined
+
+    in
+        Grab.desideratum r ~> Nothing
+
+prop_5 =
+    let
+        g :: Grab.Simple [Integer] () (Integer, Integer)
+        g =
+            (,)
+                <$> ( Grab.partition (List.partition even)
+                    / Grab.dump (\xs -> Grab.success (sum xs))
+                    )
+                <*> ( Grab.partition (List.partition odd)
+                    / Grab.dump (\_ -> Grab.failure ())
+                    )
+
+        r = Grab.runGrab g undefined
+
+    in
+        Grab.desideratum r ~> Nothing
+
+prop_6 =
+    let
+        g :: Grab.Simple [Integer] () Integer
+        g =
+            ( Grab.partition (List.partition even)
+            / Grab.dump (\xs -> Grab.success (sum xs))
+            )
+
+        r = Grab.runGrab g [1,2,3,4]
+
+    in
+        Grab.desideratum r ~> Just 6
+
+prop_7 =
+    let
+        g :: Grab.Simple [Integer] () (Integer, Integer)
+        g =
+            (,)
+                <$> ( Grab.partition (List.partition even)
+                    / Grab.dump (\xs -> Grab.success (sum xs))
+                    )
+                <*> ( Grab.partition (List.partition odd)
+                    / Grab.dump (\xs -> Grab.success (sum xs))
+                    )
+
+        r = Grab.runGrab g [1,2,3,4]
+
+    in
+        Grab.desideratum r ~> Just (6, 4)
+
+prop_8 =
+    let
+        g :: Grab.Simple [Integer] () (Integer, Integer)
+        g =
+            (,)
+                <$> ( Grab.partition (List.partition even)
+                    / Grab.dump (\xs -> Grab.success (sum xs))
+                    )
+                <*> ( Grab.partition (List.partition odd)
+                    / Grab.dump (\xs -> if elem 3 xs then Grab.failure () else Grab.success (sum xs))
+                    )
+
+        r = Grab.runGrab g (1:2:3:undefined)
 
     in
         Grab.desideratum r ~> Nothing
