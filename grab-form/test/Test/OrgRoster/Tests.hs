@@ -9,12 +9,10 @@
 
 module Test.OrgRoster.Tests where
 
-import Prelude hiding ((/))
-
 import Test.OrgRoster.Concepts
 import Test.OrgRoster.Grabs
 
-import Data.GrabForm (only, etAlia, natList, readName, Name (..), NamePart (..), Param (..), (/), at, remainder, englishSentenceLogText, readTextParams)
+import Data.GrabForm (only, etAlia, natList, readName, Name (..), NamePart (..), Param (..), at, remainder, englishSentenceLogText, readTextParams)
 
 import qualified Data.Map as Map
 
@@ -25,13 +23,13 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-group :: Group
-group = $$(discover)
+testGroup :: Group
+testGroup = $$(discover)
 
 prop_1 :: Property
 prop_1 = example
   Example
-    { ex_dump = only ((,) <$> at "org" / only org <*> remainder)
+    { ex_dump = only ((,) <$> at "org" (only org) <*> remainder)
     , ex_params = [("org", "13f499c3")]
     , ex_log = []
     , ex_value = Just (OrgId "13f499c3", [])
@@ -40,7 +38,7 @@ prop_1 = example
 prop_2 :: Property
 prop_2 = example
   Example
-    { ex_dump = etAlia (at "members" / only memberList)
+    { ex_dump = etAlia (at "members" (only memberList))
     , ex_params = [("org", "13f499c3")]
     , ex_log = []
     , ex_value = Just (MemberList mempty mempty)
@@ -76,7 +74,7 @@ prop_5 = example
 prop_6 :: Property
 prop_6 = example
   Example
-    { ex_dump = only (at "org" / only org)
+    { ex_dump = only (at "org" (only org))
     , ex_params = []
     , ex_log = ["org: Required parameter is missing."]
     , ex_value = Nothing
@@ -85,8 +83,8 @@ prop_6 = example
 prop_7 :: Property
 prop_7 = example
   Example
-    { ex_dump = only ((,,) <$> (at "org1" / only org)
-                           <*> (at "org2" / only org)
+    { ex_dump = only ((,,) <$> at "org1" (only org)
+                           <*> at "org2" (only org)
                            <*> remainder)
     , ex_params = [("org1", "abc"), ("org3", "xyz"), ("org2", "def")]
     , ex_log = []
@@ -96,8 +94,8 @@ prop_7 = example
 prop_8 :: Property
 prop_8 = example
   Example
-    { ex_dump = etAlia ((,) <$> (at "org1" / only org)
-                            <*> (at "org2" / only org))
+    { ex_dump = etAlia ((,) <$> at "org1" (only org)
+                            <*> at "org2" (only org))
     , ex_params = [("org1", "abc"), ("org2", "xyz"), ("org2", "def"), ("org3", "jkl")]
     , ex_log = ["org2: Parameter may not appear more than once."]
     , ex_value = Nothing
@@ -106,8 +104,8 @@ prop_8 = example
 prop_9 :: Property
 prop_9 = example
   Example
-    { ex_dump = etAlia ((,) <$> (at "org1" / only org)
-                            <*> (at "org2" / only org))
+    { ex_dump = etAlia ((,) <$> at "org1" (only org)
+                            <*> at "org2" (only org))
     , ex_params = [("org1", "abc"), ("org3", "jkl")]
     , ex_log = ["org2: Required parameter is missing."]
     , ex_value = Nothing
@@ -116,8 +114,8 @@ prop_9 = example
 prop_10 :: Property
 prop_10 = example
   Example
-    { ex_dump = etAlia ((,) <$> (at "org1" / only org)
-                            <*> (at "org2" / only org))
+    { ex_dump = etAlia ((,) <$> at "org1" (only org)
+                            <*> at "org2" (only org))
     , ex_params = [("org1", "abc"), ("org1", "def"), ("org3", "jkl")]
     , ex_log = ["org1: Parameter may not appear more than once.",
                 "org2: Required parameter is missing."]
@@ -127,7 +125,7 @@ prop_10 = example
 prop_11 :: Property
 prop_11 = example
   Example
-    { ex_dump = only (at "org" / only org)
+    { ex_dump = only (at "org" (only org))
     , ex_params = [("org", "abc"), ("org", "abc")]
     , ex_log = []
     , ex_value = Just (OrgId "abc")
@@ -173,7 +171,7 @@ prop_12 = example
 prop_13 :: Property
 prop_13 = example
   Example
-    { ex_dump = only (at "new" / only (natList (only member)))
+    { ex_dump = only (at "new" (only (natList (only member))))
     , ex_params =
         [ ("new[1].name", "Lunchbox")
         , ("new[2].isManager", "yes")

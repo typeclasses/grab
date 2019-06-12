@@ -9,12 +9,10 @@
 
 module Test.OrgRoster.Grabs where
 
-import Prelude hiding ((/))
-
 import Test.OrgRoster.Concepts
 
 import qualified Data.GrabForm as Grab
-import Data.GrabForm (only, natList, (/), at, checkbox, text, optionalText, natListWithIndex)
+import Data.GrabForm (only, natList, at, checkbox, text, optionalText, natListWithIndex)
 
 import Data.Bifunctor
 
@@ -29,8 +27,8 @@ type Dump desideratum = Grab.Dump Error desideratum
 roster :: Grab Roster
 roster =
     Roster
-        <$> at "org" / only org
-        <*> at "members" / only memberList
+        <$> at "org" (only org)
+        <*> at "members" (only memberList)
 
 org :: Grab OrgId
 org = fmap OrgId text
@@ -38,8 +36,8 @@ org = fmap OrgId text
 memberList :: Grab MemberList
 memberList =
     MemberList
-        <$> at "existing" / only existingList
-        <*> at "new" / only (natList (only member))
+        <$> at "existing" (only existingList)
+        <*> at "new" (only (natList (only member)))
 
 existingList :: Grab (Map RosterOrdinal Modification)
 existingList =
@@ -50,15 +48,15 @@ modification :: Grab Modification
 modification =
   do
     m <- member
-    r <- at "remove" / only (checkbox "yes")
+    r <- at "remove" (only (checkbox "yes"))
     return (if r then Modification_Delete else Modification_Update m)
 
 member :: Grab Member
 member =
     Member
-        <$> at "name"      / only (fmap (fmap OrgMemberName) optionalText)
-        <*> at "isManager" / only (fmap isManagerRole (checkbox "yes"))
-        <*> at "isUser"    / only (fmap isUserAccess (checkbox "yes"))
+        <$> at "name"      (only (fmap (fmap OrgMemberName) optionalText))
+        <*> at "isManager" (only (fmap isManagerRole (checkbox "yes")))
+        <*> at "isUser"    (only (fmap isUserAccess (checkbox "yes")))
 
 isManagerRole :: Bool -> OrgRole
 isManagerRole =

@@ -32,7 +32,7 @@ module Data.GrabForm
   -- ** Types: Grab and Dump
   , Grab, Dump
   -- ** Parameter name selection
-  , at, here, (/)
+  , at
   -- ** Simple form fields
   , text, optionalText, checkbox
   -- ** Lists
@@ -65,6 +65,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 import qualified Control.Grab as Grab
+import Control.Grab ((/))
 
 
 --- Form ---
@@ -240,13 +241,16 @@ type Extract err a =
 
 --- Parameter name selection ---
 
-at :: Ord err => NamePart -> Grab err Form
-at k =
+atGrab :: Ord err => NamePart -> Grab err Form
+atGrab k =
     Grab.partition \(Form xs ctx) ->
         let
             (s, r) = partitionMaybe (namePrefixPartition k) xs
         in
             (Form s (ctx . coerce (k :)), Form r ctx)
+
+at :: Ord err => NamePart -> Dump err a -> Grab err a
+at k d = atGrab k / d
 
 namePrefixPartition :: NamePart -> Param -> Maybe Param
 namePrefixPartition k (Param name value) =
@@ -269,13 +273,6 @@ herePartition =
     \case
         p@(Param (Name []) _) -> Just p
         _ -> Nothing
-
-(/) :: Ord err =>
-    Grab err Form ->
-    Dump err a ->
-    Grab err a
-
-(/) = (Grab./)
 
 
 --- Simple form fields ---
@@ -379,7 +376,7 @@ natListWithIndex :: forall err a. Ord err =>
 natListWithIndex =
   \d ->
     Grab.partition selectNats
-    Grab./
+    /
     Grab.dump \(xs, ctx) ->
         for (groupByFst xs) \(n, xs') ->
             Grab.runDump
