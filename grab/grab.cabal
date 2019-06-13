@@ -100,6 +100,7 @@ benchmark space
   type: exitcode-stdio-1.0
   hs-source-dirs: bench
   main-is: space.hs
+  default-language: Haskell2010
   ghc-options: "-with-rtsopts=-K1K"
 
   build-depends:
@@ -110,6 +111,8 @@ benchmark time
   type: exitcode-stdio-1.0
   hs-source-dirs: bench
   main-is: time.hs
+  default-language: Haskell2010
+
   build-depends:
       grab
     , base       ^>= 4.12.0.0
