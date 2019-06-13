@@ -30,11 +30,14 @@ module Control.Grab
   , runGrab, runDump
   -- ** Deconstructing results
   , residue, log, desideratum
+  -- ** Both applying and deconstructing
+  , runGrabMaybe
 
   ) where
 
 import Control.Applicative (Applicative (..))
 import Data.Bifunctor (Bifunctor (..))
+import Data.Function ((.))
 import Data.Functor (Functor (..))
 import Data.Maybe (Maybe (..))
 import Data.Monoid (Monoid (..))
@@ -156,13 +159,15 @@ instance (bag ~ residue, Monoid log) =>
     pure = grabPure
     (<*>) = grabAp
 
-grabPure :: Monoid log => a -> Grab bag bag log a
-grabPure a = Grab \bag -> (bag, mempty, Just a)
+grabPure :: forall bag log desideratum. Monoid log =>
+    desideratum -> Grab bag bag log desideratum
 
-grabAp :: Monoid log =>
-    Grab bag bag log (x -> a) ->
+grabPure x = Grab \bag -> (bag, mempty, Just x)
+
+grabAp :: forall bag log x desideratum. Monoid log =>
+    Grab bag bag log (x -> desideratum) ->
     Grab bag bag log x ->
-    Grab bag bag log a
+    Grab bag bag log desideratum
 
 grabAp (Grab pf) (Grab px) =
     Grab \bag ->
@@ -195,8 +200,8 @@ bimapGrab f g (Grab x) =
 --- Creating grabs ---
 
 -- | The most general way to construct an 'Extract'.
-extract
-    :: log
+extract :: forall log desideratum.
+    log
         -- ^ Log output, such as an error or warning message.
     -> Maybe desideratum
         -- ^ 'Just' some desideratum if the extract represents the
@@ -207,20 +212,20 @@ extract
 
 extract x y = Grab \() -> ((), x, y)
 
-success :: Monoid log
-    => desideratum
+success :: forall log desideratum. Monoid log =>
+    desideratum
         -- ^ The desired object.
     -> Extract log desideratum
         -- ^ A successful extract with an empty log.
 
-failure
-    :: log
+failure :: forall log desideratum.
+    log
         -- ^ Log output such as an error message.
     -> Extract log desideratum
         -- ^ An extract with the given log and no desideratum.
 
-warning
-    :: log
+warning :: forall log.
+    log
         -- ^ Log output such as a warning message.
     -> Extract log ()
         -- ^ An extract with the given log and a desideratum of @()@.
@@ -229,11 +234,12 @@ success x = extract mempty (Just x)
 failure x = extract x (Nothing)
 warning x = extract x (Just ())
 
-partition :: Monoid log
-    => (bag -> (desideratum, residue))
+partition :: forall bag residue log desideratum. Monoid log =>
+    (bag -> (desideratum, residue))
         -- ^ Function that partitions the bag into desideratum and residue.
     -> Grab bag residue log desideratum
         -- ^ A grab that always succeeds and never logs.
+
 partition f =
     Grab \i ->
         let
@@ -241,13 +247,14 @@ partition f =
         in
             (r, mempty, Just s)
 
-dump
-    :: (bag -> Extract log desideratum)
+dump :: forall bag log desideratum.
+    (bag -> Extract log desideratum)
         -- ^ A function which, given the entire input, produces
         --   some log output and maybe a desideratum.
     -> Dump bag log desideratum
         -- ^ A grab that consumes the entire bag, producing
         --   whatever the function extracted from its contents.
+
 dump f =
     Grab \i ->
         let
@@ -257,11 +264,11 @@ dump f =
 
 -- | @a / b@ is a pipeline of two grabs, using the output of /a/
 -- as the input to /b/.
-(/) :: Semigroup log
-    => Grab bag residue log x
+(/) :: forall bag residue _r log x desideratum. Semigroup log =>
+    Grab bag residue log x
         -- ^ The first grab /a/, whose desideratum @x@ will be
         --   passed as input to the second grab /b/.
-    -> Grab x r log desideratum
+    -> Grab x _r log desideratum
         -- ^ The second grab /b/. The residue of this grab will be
         --   ignored, so it usually ought to be a 'Dump'.
     -> Grab bag residue log desideratum
@@ -281,11 +288,12 @@ dump f =
                     in
                         (x, y <> y', z')
 
-discardResidue
-    :: Grab bag residue log desideratum
+discardResidue :: forall bag residue log desideratum .
+    Grab bag residue log desideratum
         -- ^ A grab which may produce some residue.
     -> Dump bag log desideratum
         -- ^ A grab that produces no residue.
+
 discardResidue (Grab f) =
     Grab \bag ->
         let
@@ -297,8 +305,8 @@ discardResidue (Grab f) =
 --- Using grabs ---
 
 -- | When @residue@ is @()@, this function specializes to 'runDump'.
-runGrab
-    :: Grab bag residue log desideratum
+runGrab :: forall bag residue log desideratum.
+    Grab bag residue log desideratum
         -- ^ A grab, which may consume some portion of the input.
     -> bag
         -- ^ The input.
@@ -307,6 +315,7 @@ runGrab
         --   the @residue@ representing the remaining portion of
         --   input, a @log@ for providing error output, and a
         --   @desideratum@ if the grab was successful.
+
 runGrab (Grab f) x =
     let
         !r = f x
@@ -314,8 +323,8 @@ runGrab (Grab f) x =
         Grab \() -> r
 
 -- | This is a specialization of the more general 'runGrab' function.
-runDump
-    :: Dump bag log desideratum
+runDump :: forall bag log desideratum.
+    Dump bag log desideratum
         -- ^ A dump which consumes the input.
     -> bag
         -- ^ The input.
@@ -326,21 +335,34 @@ runDump
 
 runDump = runGrab
 
-desideratum
-    :: Result residue log desideratum
+-- | Run a grab, ignoring the residue and log, producing only
+-- the desideratum.
+--
+-- > runGrabMaybe x = desideratum . runGrab x
+--
+runGrabMaybe :: forall bag residue log desideratum.
+    Grab bag residue log desideratum
+    -> bag
+    -> Maybe desideratum
+
+runGrabMaybe x = desideratum . runGrab x
+
+desideratum :: forall residue log desideratum.
+    Result residue log desideratum
         -- ^ Either a 'Result' or an 'Extract'.
     -> Maybe desideratum
         -- ^ The desired object, if one was successfully
         --   extracted from the bag.
 
-log :: Result residue log desideratum
+log :: forall residue log desideratum.
+    Result residue log desideratum
         -- ^ Either a 'Result' or an 'Extract'.
     -> log
         -- ^ Any extra information produced during the
         --   grab, such as error messages.
 
-residue
-    :: Result residue log desideratum
+residue :: forall residue log desideratum.
+    Result residue log desideratum
         -- ^ The result of 'run'ning a 'Grab'
     -> residue
         -- ^ The portion of the bag that was not consumed
