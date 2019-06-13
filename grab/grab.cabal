@@ -66,6 +66,16 @@ description:
     > λ> runGrabMaybe ((,) <$> (twos @() / threes @()) <*> threes @()) [1..10]
     > Just ([6],[3,9])
 
+homepage:    https://github.com/typeclasses/grab
+bug-reports: https://github.com/typeclasses/grab/issues
+
+author:     Chris Martin
+maintainer: Chris Martin, Julie Moronuki
+
+copyright: 2019 Typeclass Consulting, LLC
+license: MIT
+license-file: license.txt
+
 tested-with: GHC==8.6.5
 
 library
