@@ -3,6 +3,9 @@ cabal-version: 2.4
 name: grab-form
 version: 0.0.0.1
 
+synopsis: Applicative parsers for form parameter lists
+category: Text
+
 description:
     @Grab@ is an @Applicative@ for consuming lists of
     (name, value) parameters.
