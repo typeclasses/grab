@@ -178,6 +178,8 @@ to flatten it somehow. We adopt the following convention:
     security[3].Q:  What was the make and model of your first car?
     security[3].A:  bmw x5
 
+Let's define a data type to represent a question and answer:
+
 -}
 
 data QA = QA { qa_question :: Text, qa_answer :: Text } deriving (Eq, Show)
