@@ -112,7 +112,7 @@ showName (Name []) = ""
 showName (Name (x : xs)) = showNamePart x <> showNameRemainder xs
   where
     showNameRemainder [] = ""
-    showNameRemainder (y : ys) = "." <> showNamePart' y <> showNameRemainder ys
+    showNameRemainder (y : ys) = showNamePart' y <> showNameRemainder ys
 
     showNamePart (NameStr s) = s
     showNamePart (NameNat n) = showNat n

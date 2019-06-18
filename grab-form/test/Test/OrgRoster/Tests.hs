@@ -184,6 +184,27 @@ prop_13 = example
         []
     }
 
+prop_14 :: Property
+prop_14 = example
+  Example
+    { ex_dump = only roster
+    , ex_params =
+        [ ("members[1].name", "Broccoli Rob")
+        , ("members[1].isManager", "yes")
+        , ("org", "13f499c3")
+        ]
+    , ex_log =
+        [ "members[1].isManager: Unexpected parameter."
+        , "members[1].name: Unexpected parameter."
+        ]
+    , ex_value =
+        Just
+          Roster
+            { roster_org = OrgId "13f499c3"
+            , roster_members = MemberList mempty mempty
+            }
+    }
+
 data Example a =
   Example
     { ex_dump :: Dump a
