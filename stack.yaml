@@ -1,1 +1,1 @@
-{"resolver": "lts-13.25", packages: ["grab", "grab-form"]}
+{"resolver": "lts-14.8", packages: ["grab", "grab-form"]}
