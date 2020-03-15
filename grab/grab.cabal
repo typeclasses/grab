@@ -1,7 +1,7 @@
 cabal-version: 2.4
 
 name: grab
-version: 0.0.0.1
+version: 0.0.0.4
 
 synopsis: Applicative non-linear consumption
 category: Control

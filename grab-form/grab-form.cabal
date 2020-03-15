@@ -1,7 +1,7 @@
 cabal-version: 2.4
 
 name: grab-form
-version: 0.0.0.2
+version: 0.0.0.4
 
 synopsis: Applicative parsers for form parameter lists
 category: Text
