@@ -97,7 +97,7 @@ test-suite hedgehog
   build-depends: base, grab, hedgehog
 
   build-depends: base >= 4.12
-  build-depends: hedgehog >= 0.6
+  build-depends: hedgehog >= 1.0
 
   build-depends: base < 4.14
   build-depends: hedgehog < 1.1
