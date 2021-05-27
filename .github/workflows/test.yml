@@ -13,6 +13,7 @@ jobs:
         ghc:
           - '8.8.1'
           - '8.6.5'
+          - '8.10.4'
 
     steps:
       - uses: actions/checkout@v2

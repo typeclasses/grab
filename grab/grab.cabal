@@ -76,7 +76,7 @@ copyright: 2021 Mission Valley Software LLC
 license: MIT
 license-file: license.txt
 
-tested-with: GHC==8.6.5, GHC==8.8.1
+tested-with: GHC==8.6.5, GHC==8.8.1, GHC==8.10.4
 
 library
   hs-source-dirs: src
@@ -86,7 +86,7 @@ library
 
   build-depends: base
   build-depends: base >= 4.12
-  build-depends: base < 4.14
+  build-depends: base < 4.15
 
 test-suite hedgehog
   type: exitcode-stdio-1.0
@@ -99,7 +99,7 @@ test-suite hedgehog
   build-depends: base >= 4.12
   build-depends: hedgehog >= 1.0
 
-  build-depends: base < 4.14
+  build-depends: base < 4.15
   build-depends: hedgehog < 1.1
 
 -- This benchmark runs with a tightly limited stack size
@@ -121,7 +121,7 @@ benchmark space
 
   build-depends: base >= 4.12
 
-  build-depends: base < 4.14
+  build-depends: base < 4.15
 
 benchmark time
   type: exitcode-stdio-1.0
@@ -134,5 +134,5 @@ benchmark time
   build-depends: base >= 4.12
   build-depends: criterion >= 1.5
 
-  build-depends: base < 4.14
+  build-depends: base < 4.15
   build-depends: criterion < 1.6
