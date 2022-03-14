@@ -1,7 +1,7 @@
 cabal-version: 3.0
 
 name: grab
-version: 0.0.0.6
+version: 0.0.0.7
 
 synopsis: Applicative non-linear consumption
 category: Control
@@ -75,6 +75,9 @@ maintainer: Chris Martin, Julie Moronuki
 copyright: 2021 Mission Valley Software LLC
 license: MIT
 license-file: license.txt
+
+extra-source-files:
+    changelog.md
 
 common base
     default-language: Haskell2010
