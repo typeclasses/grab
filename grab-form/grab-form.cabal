@@ -95,7 +95,7 @@ test-suite hedgehog
         containers ^>= 0.6
       , grab
       , grab-form
-      , hedgehog ^>= 0.6 || ^>= 1.0
+      , hedgehog ^>= 0.6 || ^>= 1.0 || ^>= 1.1
       , text ^>= 1.2
 
     other-modules:

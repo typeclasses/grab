@@ -95,7 +95,7 @@ test-suite hedgehog
 
     build-depends:
         grab
-      , hedgehog ^>= 1.0
+      , hedgehog ^>= 1.0 || ^>= 1.1
 
 -- This benchmark runs with a tightly limited stack size
 -- to detect space leaks, as described by:
