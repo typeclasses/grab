@@ -1,1 +1,1 @@
-packages: grab/grab.cabal, grab-form/grab-form.cabal
+packages: grab, grab-form
