@@ -90,11 +90,11 @@ library
     ghc-options: -fdefer-typed-holes
     exposed-modules: Control.Grab
 
-test-suite hedgehog
+test-suite grab-test
     import: base
     type: exitcode-stdio-1.0
     hs-source-dirs: test
-    main-is: hedgehog.hs
+    main-is: Main.hs
 
     build-depends:
         grab
@@ -108,20 +108,20 @@ test-suite hedgehog
 --
 --     stack bench grab:space --profile --ba "+RTS -xc"
 --
-benchmark space
+benchmark grab-space-bench
     import: base
     type: exitcode-stdio-1.0
-    hs-source-dirs: bench
-    main-is: space.hs
+    hs-source-dirs: bench/space
+    main-is: Main.hs
     ghc-options: "-with-rtsopts=-K1K"
 
     build-depends: grab
 
-benchmark time
+benchmark grab-time-bench
     import: base
     type: exitcode-stdio-1.0
-    hs-source-dirs: bench
-    main-is: time.hs
+    hs-source-dirs: bench/time
+    main-is: Main.hs
 
     build-depends:
         criterion ^>= 1.5

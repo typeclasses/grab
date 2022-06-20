@@ -89,7 +89,7 @@ test-suite hedgehog
     import: base
     type: exitcode-stdio-1.0
     hs-source-dirs: test
-    main-is: hedgehog.hs
+    main-is: Main.hs
 
     build-depends:
         containers ^>= 0.6
