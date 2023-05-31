@@ -1,8 +1,0 @@
-packages: grab, grab-form
-
-constraints:
-    base == 4.15.*
-  , containers == 0.6.4.1
-  , criterion == 1.5.9.0
-  , hedgehog == 1.0.5
-  , text == 1.2.5.*
