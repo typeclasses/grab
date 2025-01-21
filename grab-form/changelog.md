@@ -19,3 +19,7 @@ Support base-4.16, hedgehog-1.1
 ## 0.0.0.8 - 2022 Jun 20
 
 Fix build for case-insensitive file systems
+
+## 0.0.0.9 - 2024 Jan 20
+
+Version bumps
